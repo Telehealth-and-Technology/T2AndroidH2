@@ -269,6 +269,15 @@ public class DataOutHandler  implements JREngageDelegate {
 	 */
 	private Cookie drupalSessionCookie;
 	
+	/**
+	 * List of Drupal node id's currently existing in Drupal 
+	 */
+	private List<String> mRemoteDrupalNodeIdList;
+	
+	/**
+	 * List of dataout packets currently residing in Drupal  
+	 */
+	private List<DataOutPacket> mRemoteDrupalPacketList;		
 	
 	
 	/**
@@ -741,6 +750,137 @@ public class DataOutHandler  implements JREngageDelegate {
         us.NodePut(jsonString, responseHandler);
     } 	
 		
+    
+    /**
+     *   Calls Gets each node id from mRemoteDrupalNodeIdList to 
+     *   and fills mRemoteDrupalPacketList with the actual packets   
+     */
+    void getDrupalNodesFromRemoteDrupalNodeIdList() {
+        UserServices us;
+        int nodeNum = 0;
+        mRemoteDrupalPacketList = new ArrayList<DataOutPacket>();
+        
+        us = new UserServices(mServicesClient);    	
+    	
+    	for (String nid : mRemoteDrupalNodeIdList) {
+    		
+    		
+            JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
+
+
+    			@Override
+                public void onSuccess(JSONObject response) {
+                    	String drupalNodeContents = response.toString();
+                    	// Now convert the drupal node to a dataOutPacket.                    	
+                    	DataOutPacket dataOutPacket = new DataOutPacket(response);
+                    	mRemoteDrupalPacketList.add(dataOutPacket);
+                    	Log.e(TAG, "Adding " + dataOutPacket.toString());
+                    	
+                }
+
+    			@Override
+    			public void onSuccess(JSONArray arg0) {
+    				super.onSuccess(arg0);
+    			}
+
+                
+                @Override
+                public void onFailure(Throwable e, JSONObject response) {
+                    Log.e(TAG, e.toString());
+                }
+                
+                @Override
+    			public void onFailure(Throwable arg0, JSONArray arg1) {
+                    Log.e(TAG, arg0.toString());
+    			}
+
+    			@Override
+                public void onFinish() {
+                    Log.d(TAG, "onFinish()");
+                	
+                }
+            };        
+            
+            
+        	try {
+        		nodeNum = Integer.parseInt(nid);
+                us.NodeGet(nodeNum, responseHandler);
+			} catch (NumberFormatException e1) {
+			}
+    	}
+    	
+    }
+    
+    
+    /**
+     * 
+     * Part A - 
+     *   Polls remote Drupal database and fills mRemoteDrupalNodeIdList
+     *   with a list of current node id's
+     * Part B - 
+     *   Calls getDrupalNodesFromRemoteDrupalNodeIdList to fill mRemoteDrupalPacketList
+     */
+    public void getRemoteDrupalNodes() {
+    	 UserServices us;
+         int nodeNum = 0;
+         
+         us = new UserServices(mServicesClient);
+
+        JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
+         	
+         	@Override
+ 			protected void handleSuccessJsonMessage(Object arg0) {
+         		// Accumulate a list of all of the current node id's in currentNodeIdList
+         		JSONArray array = (JSONArray) arg0;
+ 				mRemoteDrupalNodeIdList = new ArrayList<String>();	        		
+                 for (int i = 0; i < array.length(); i++) {
+                 	JSONObject jObject  = (JSONObject) array.opt(i);
+                 	try {
+ 						String nodeId = (String) jObject.get("nid");
+ 						mRemoteDrupalNodeIdList.add(nodeId);
+ 					} catch (JSONException e) {
+ 						e.printStackTrace();
+ 					}
+                 }
+                 
+                 getDrupalNodesFromRemoteDrupalNodeIdList();                
+         		
+         		Log.e(TAG, array.toString());
+ 			}
+
+ 			@Override
+             public void onSuccess(JSONObject response) {
+             }
+
+ 			@Override
+ 			public void onSuccess(JSONArray arg0) {
+ 				super.onSuccess(arg0);
+ 			}
+
+             
+             @Override
+             public void onFailure(Throwable e, JSONObject response) {
+                 Log.e(TAG, e.toString());
+             }
+             
+             @Override
+ 			public void onFailure(Throwable arg0, JSONArray arg1) {
+                 Log.e(TAG, arg0.toString());
+ 			}
+
+ 			@Override
+             public void onFinish() {
+                 Log.d(TAG, "onFinish()");
+             	
+             }
+         };        
+         
+             us.NodeGet(responseHandler);
+    }
+    
+    
+    
+    
     /**
      * 
      * 
@@ -757,12 +897,14 @@ public class DataOutHandler  implements JREngageDelegate {
         		nodeNum = Integer.parseInt(nodeStr);
 			} catch (NumberFormatException e1) {
 				nodeStr = "*";
+			
 			}
         	
         }
         
         JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
-            @Override
+        	
+			@Override
             public void onSuccess(JSONObject response) {
                 try {
                 	mResult = response.toString(); 

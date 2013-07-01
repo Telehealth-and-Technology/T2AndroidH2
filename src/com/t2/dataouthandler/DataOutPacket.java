@@ -38,18 +38,78 @@ import java.util.TimeZone;
 import java.util.UUID;
 import java.util.Vector;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import android.os.Build;
+import android.util.Log;
 
 import com.t2.dataouthandler.DataOutHandlerTags;
 
 
 public class DataOutPacket implements Serializable {
 
+	private final String TAG = getClass().getName();	
+
 	public HashMap<String, Object> mItemsMap = new HashMap<String, Object>();
 	public String mLoggingString;
 	public String mId;
     private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 	public long mCurrentTime;
+
+	public DataOutPacket(JSONObject drupalObject) {
+		
+			String itemValue;
+			String itemKey;
+			
+		   Iterator<String> iter = drupalObject.keys();
+		    while (iter.hasNext()) {
+		        String key = iter.next();
+		        
+		        // Valid DataOutPacket enteries have keys that start with field_"
+		        // and contain another object (key = und"
+		        if (key.startsWith("field")) {
+			        try {
+			            Object undObject = drupalObject.get(key);
+
+			            if (undObject instanceof JSONObject) {
+			            	
+			            	JSONObject obj = (JSONObject)undObject;
+			            	Object obj1 = obj.get("und");
+			            	if (obj1 instanceof JSONArray) {
+			            		
+			            		JSONArray obj2 = (JSONArray)obj1;
+			            		JSONObject obj3 = obj2.getJSONObject(0);
+			            		itemValue = obj3.getString("value");
+
+			            		itemKey = key.substring(6, key.length());
+					            //Log.e(TAG, itemKey + ": " + itemValue);
+			            		
+					            
+					            add(itemKey,itemValue);
+			            		if (itemKey.equalsIgnoreCase("record_id")) {
+			            			mId = itemValue;
+			            			mCurrentTime = Long.parseLong(itemValue.substring(0, 13));
+			            			
+			            		}
+			            		
+			            		
+			            	}
+			            }
+			        } catch (JSONException e) {
+			        	Log.e(TAG, e.toString());
+			        }
+		        	
+		        }
+		        
+		    }
+		    
+		    Log.d(TAG, "Conversion OK");		    
+	}	
+	
+	
+	
 	
 	public DataOutPacket() {
     	UUID uuid = UUID.randomUUID();
@@ -93,31 +153,29 @@ public class DataOutPacket implements Serializable {
 	
 	public String toString() {
 		String result = "";
-		   Iterator it = mItemsMap.entrySet().iterator();
-		    while (it.hasNext()) {
-		        Map.Entry pairs = (Map.Entry)it.next();
-		        result += pairs.getKey() + " = " + pairs.getValue() + ", ";
-		        
-		        if (pairs.getValue() instanceof Integer) {
-		        	result += "{INTEGER} + ";
-		        }
-		        if (pairs.getValue() instanceof String) {
-		        	result += "{String} + ";
-		        }
-		        if (pairs.getValue() instanceof Long) {
-		        	result += "{Long} + ";
-		        }
-		        if (pairs.getValue() instanceof Double) {
-		        	result += "{Long} + ";
-		        }
-		        if (pairs.getValue() instanceof Vector) {
-		        	result += "{Vector} + ";
-		        }
-		        
-		        
-		    }		
 		
-
+		result += mId + ", ";
+//		   Iterator it = mItemsMap.entrySet().iterator();
+//		    while (it.hasNext()) {
+//		        Map.Entry pairs = (Map.Entry)it.next();
+//		        result += pairs.getKey() + " = " + pairs.getValue() + ", ";
+//		        
+//		        if (pairs.getValue() instanceof Integer) {
+//		        	result += "{INTEGER} + ";
+//		        }
+//		        if (pairs.getValue() instanceof String) {
+//		        	result += "{String} + ";
+//		        }
+//		        if (pairs.getValue() instanceof Long) {
+//		        	result += "{Long} + ";
+//		        }
+//		        if (pairs.getValue() instanceof Double) {
+//		        	result += "{Long} + ";
+//		        }
+//		        if (pairs.getValue() instanceof Vector) {
+//		        	result += "{Vector} + ";
+//		        }
+//		    }		
 		return result;
 	}
 
