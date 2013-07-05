@@ -698,6 +698,9 @@ public class DataOutHandler  implements JREngageDelegate {
 //			Log.d(TAG, packet.mStr);			
 //		}
 		
+		// First update the in memory packet list
+		mRemoteDrupalPacketList.put(packet.mDrupalNid, packet);		
+		
 		if (mDatabaseEnabled) {
 			Log.d(TAG, "Queueing document " + packet.mId);
 
