@@ -64,7 +64,7 @@ public class UserServices {
         mServicesClient.get("node/", new RequestParams(), responseHandler);
     }
 
-    public void NodePut( String jsonString, AsyncHttpResponseHandler responseHandler) {
+    public void NodePost( String jsonString, AsyncHttpResponseHandler responseHandler) {
         JSONObject params;
 		try {
 			params = new JSONObject(jsonString);
@@ -74,4 +74,19 @@ public class UserServices {
 			e.printStackTrace();
 		}
     }
+    
+    public void NodePut( String jsonString, AsyncHttpResponseHandler responseHandler, String drupalNodeId) {
+        JSONObject params;
+		try {
+			params = new JSONObject(jsonString);
+	        mServicesClient.put("node/" + drupalNodeId, params, responseHandler);
+		} catch (JSONException e) {
+			Log.e(TAG,  e.toString());
+			e.printStackTrace();
+		}
+    }    
+    
+    public void NodeDelete(AsyncHttpResponseHandler responseHandler, String drupalNodeId) {
+	        mServicesClient.delete("node/" + drupalNodeId, responseHandler);
+    }       
 }

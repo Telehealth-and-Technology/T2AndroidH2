@@ -79,6 +79,7 @@ import com.t2.dataouthandler.DataOutHandlerTags;
 import com.t2.dataouthandler.T2AuthDelegate;
 import com.t2.dataouthandler.T2RestClient;
 import com.t2.dataouthandler.T2RestPacket;
+import com.t2.drupalsdk.DrupalUpdateListener;
 import com.t2.drupalsdk.ServicesClient;
 import com.t2.drupalsdk.UserServices;
 
@@ -273,11 +274,13 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * List of Drupal node id's currently existing in Drupal 
 	 */
 	private List<String> mRemoteDrupalNodeIdList;
+
+	private List<String> mRemoteDrupalNodeIdListCheckoff;
 	
 	/**
 	 * List of dataout packets currently residing in Drupal  
 	 */
-	private List<DataOutPacket> mRemoteDrupalPacketList;		
+	public HashMap<String, DataOutPacket> mRemoteDrupalPacketList;		
 	
 	
 	/**
@@ -704,12 +707,47 @@ public class DataOutHandler  implements JREngageDelegate {
 		}
 	}	
 
+	public void updateRecord(final DataOutPacket packet) throws DataOutHandlerException {
+		
+		// First update the in memory packet list
+		mRemoteDrupalPacketList.put(packet.mDrupalNid, packet);
+
+		// Now update the database
+		if (mDatabaseEnabled) {
+			packet.mQueuedAction = "U";
+			Log.d(TAG, "Queueing document for Update" + packet.mId);
+
+			synchronized(mPendingQueue) {
+				mPendingQueue.add(0,  packet);
+			}
+		}		
+		
+	}
+	
+	public void deleteRecord(final DataOutPacket packet) throws DataOutHandlerException {
+		
+		// First update the in memory packet list
+		mRemoteDrupalPacketList.remove(packet.mDrupalNid);
+
+		// Now update the database
+		if (mDatabaseEnabled) {
+			packet.mQueuedAction = "D";
+			Log.d(TAG, "Queueing document for Delete" + packet.mId);
+
+			synchronized(mPendingQueue) {
+				mPendingQueue.add(0,  packet);
+			}
+		}		
+		
+	}
+		
+	
     /**
      * Sends a specific json string to Drupal database for processing
      * 
      * @param jsonString
      */
-    void drupalNodePut(String jsonString) {
+    void drupalNodePut(String jsonString, String queuedAction, String drupalNodeId) {
         UserServices us;
         us = new UserServices(mServicesClient);
 
@@ -747,34 +785,68 @@ public class DataOutHandler  implements JREngageDelegate {
             	
             }
         };        
-        us.NodePut(jsonString, responseHandler);
+        
+        
+        
+        if (queuedAction.equalsIgnoreCase("C")) {
+            us.NodePost(jsonString, responseHandler);
+        }
+        else if (queuedAction.equalsIgnoreCase("U")) {
+            us.NodePut(jsonString, responseHandler, drupalNodeId);
+        }
+        else if (queuedAction.equalsIgnoreCase("D")) {
+            us.NodeDelete(responseHandler, drupalNodeId);
+        }
     } 	
 		
+//    boolean UpdateRemoteDrupalPacketList (DataOutPacket newPacket) {
+//    	boolean found = false;
+//    	for (DataOutPacket OkdPacket : mRemoteDrupalPacketList) {
+//    		if (newPacket.mItemsMap) {
+//    			
+//    		}
+//    	}
+//    	    	
+//    }
+    
+    
     
     /**
      *   Calls Gets each node id from mRemoteDrupalNodeIdList to 
      *   and fills mRemoteDrupalPacketList with the actual packets   
      */
-    void getDrupalNodesFromRemoteDrupalNodeIdList() {
+    void getDrupalNodesFromRemoteDrupalNodeIdList(final DrupalUpdateListener listener) {
         UserServices us;
         int nodeNum = 0;
-        mRemoteDrupalPacketList = new ArrayList<DataOutPacket>();
+        mRemoteDrupalPacketList = new HashMap<String, DataOutPacket>();
         
         us = new UserServices(mServicesClient);    	
-    	
+
+        mRemoteDrupalNodeIdListCheckoff = mRemoteDrupalNodeIdList;
+        
     	for (String nid : mRemoteDrupalNodeIdList) {
     		
-    		
             JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
-
 
     			@Override
                 public void onSuccess(JSONObject response) {
                     	String drupalNodeContents = response.toString();
                     	// Now convert the drupal node to a dataOutPacket.                    	
                     	DataOutPacket dataOutPacket = new DataOutPacket(response);
-                    	mRemoteDrupalPacketList.add(dataOutPacket);
-                    	Log.e(TAG, "Adding " + dataOutPacket.toString());
+                    	mRemoteDrupalPacketList.put(dataOutPacket.mDrupalNid, dataOutPacket);
+                    	Log.e(TAG, "Adding (" + dataOutPacket.mDrupalNid + ") : "+ dataOutPacket.toString());
+                    	
+                    	// Check off node id's received, when we've received the last one notify
+                    	// the caller
+//                    	Log.e(TAG, mRemoteDrupalNodeIdListCheckoff.toString());
+                    	mRemoteDrupalNodeIdListCheckoff.remove(dataOutPacket.mDrupalNid );
+//                    	Log.e(TAG, mRemoteDrupalNodeIdListCheckoff.toString());
+//                    	if (mRemoteDrupalNodeIdListCheckoff.size() == 0) {
+                        if (true) {
+                        	if (listener != null) {
+                        		listener.drupalUpdateComplete();
+                        	}                    		
+                    	}
                     	
                 }
 
@@ -809,6 +881,8 @@ public class DataOutHandler  implements JREngageDelegate {
 			}
     	}
     	
+
+    	
     }
     
     
@@ -820,7 +894,7 @@ public class DataOutHandler  implements JREngageDelegate {
      * Part B - 
      *   Calls getDrupalNodesFromRemoteDrupalNodeIdList to fill mRemoteDrupalPacketList
      */
-    public void getRemoteDrupalNodes() {
+    public void getRemoteDrupalNodes(final DrupalUpdateListener listener) {
     	 UserServices us;
          int nodeNum = 0;
          
@@ -843,7 +917,7 @@ public class DataOutHandler  implements JREngageDelegate {
  					}
                  }
                  
-                 getDrupalNodesFromRemoteDrupalNodeIdList();                
+                 getDrupalNodesFromRemoteDrupalNodeIdList(listener);                
          		
          		Log.e(TAG, array.toString());
  			}
@@ -1064,7 +1138,7 @@ public class DataOutHandler  implements JREngageDelegate {
 									
 									//Log.d(TAG, "Posting entry " + item.toString());
 							        
-									drupalNodePut(item.toString());									
+									drupalNodePut(item.toString(), packet.mQueuedAction, packet.mDrupalNid);									
 		
 								} // End if (mDatabaseType == DATABASE_TYPE_T2_DRUPAL)
 								

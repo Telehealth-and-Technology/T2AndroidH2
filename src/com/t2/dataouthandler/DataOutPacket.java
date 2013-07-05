@@ -57,11 +57,26 @@ public class DataOutPacket implements Serializable {
 	public String mId;
     private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 	public long mCurrentTime;
-
+	public String mDrupalNid;
+	public String mQueuedAction = "C";		// Assume all actions are Create unless specifically set otherwise
+	
+	
+	/**
+	 * Reconstruct a DataOutPacket from a JSON string (supplied by Drupal)
+	 * @param drupalObject
+	 */
 	public DataOutPacket(JSONObject drupalObject) {
 		
 			String itemValue;
 			String itemKey;
+			
+			try {
+				mDrupalNid = drupalObject.getString("nid");
+				add(DataOutHandlerTags.DRUPAL_NODE_ID, mDrupalNid);
+			} catch (JSONException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
 			
 		   Iterator<String> iter = drupalObject.keys();
 		    while (iter.hasNext()) {
@@ -79,20 +94,38 @@ public class DataOutPacket implements Serializable {
 			            	Object obj1 = obj.get("und");
 			            	if (obj1 instanceof JSONArray) {
 			            		
-			            		JSONArray obj2 = (JSONArray)obj1;
-			            		JSONObject obj3 = obj2.getJSONObject(0);
-			            		itemValue = obj3.getString("value");
+			            		JSONArray undArrayObj = (JSONArray)obj1;
 
-			            		itemKey = key.substring(6, key.length());
-					            //Log.e(TAG, itemKey + ": " + itemValue);
-			            		
-					            
-					            add(itemKey,itemValue);
-			            		if (itemKey.equalsIgnoreCase("record_id")) {
-			            			mId = itemValue;
-			            			mCurrentTime = Long.parseLong(itemValue.substring(0, 13));
+			            		// If the array holds only 1 entry then just add  it
+			            		// Otherwise the array must be converted to a vector before adding it
+			            		if (undArrayObj.length() > 1) {
+			            			
+		            				Vector vector = new Vector();	
+			            			for (int i = 0; i < undArrayObj.length(); i++ ) {
+			            				JSONObject obj3 = undArrayObj.getJSONObject(i);	
+			            				itemValue = obj3.getString("value");
+			            				vector.add(itemValue);
+			            			}
+			            			itemKey = key.substring(6, key.length());
+			            			add(itemKey,vector);			            			
+			            			
 			            			
 			            		}
+			            		else {
+				            		JSONObject obj3 = undArrayObj.getJSONObject(0);
+				            		itemValue = obj3.getString("value");
+				            		itemKey = key.substring(6, key.length());
+						            
+						            add(itemKey,itemValue);
+				            		if (itemKey.equalsIgnoreCase("record_id")) {
+				            			mId = itemValue;
+				            			mCurrentTime = Long.parseLong(itemValue.substring(0, 13));
+				            			
+				            		}
+			            			
+			            		}
+			            		
+			            		
 			            		
 			            		
 			            	}

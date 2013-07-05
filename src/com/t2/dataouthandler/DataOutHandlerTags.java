@@ -115,6 +115,9 @@ public class DataOutHandlerTags {
 	public static final String DATA_TYPE = "data_type";
 	public static final String PLATFORM = "platform";
 	public static final String PLATFORM_VERSION = "platform_version";
+	public static final String DRUPAL_NODE_ID = "drupal_nid";
+
+	
 	
 	public static final String USER_EMAIL = "user_email";
 	public static final String DRUG_NAME = "drug_name";

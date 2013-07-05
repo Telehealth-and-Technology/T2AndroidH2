@@ -46,6 +46,8 @@ public class ServicesClient {
     }
 
     public void get(String url, RequestParams params, AsyncHttpResponseHandler responseHandler) {
+        Log.d(TAG, "url = " + getAbsoluteUrl(url));
+    	
         mAsyncHttpClient.get(getAbsoluteUrl(url), params, responseHandler);
     }
 
@@ -61,7 +63,6 @@ public class ServicesClient {
             e.printStackTrace();
         }
         se.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
-        Log.d(TAG, se.toString());
         Log.d(TAG, "url = " + getAbsoluteUrl(url));
         
 //        // TODO: change to debug - it's at error now simply for readability
@@ -86,7 +87,15 @@ public class ServicesClient {
             e.printStackTrace();
         }
         se.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+        Log.d(TAG, "url = " + getAbsoluteUrl(url));
+        
 
         mAsyncHttpClient.put(null, getAbsoluteUrl(url), se, "application/json", responseHandler);
     }
+    
+    public void delete(String url, AsyncHttpResponseHandler responseHandler) {
+
+        Log.d(TAG, "Delete url = " + getAbsoluteUrl(url));
+        mAsyncHttpClient.delete(null, getAbsoluteUrl(url), responseHandler);
+    }    
 }
