@@ -280,9 +280,16 @@ public class DataOutHandler  implements JREngageDelegate {
 	/**
 	 * List of dataout packets currently residing in Drupal  
 	 */
-	public HashMap<String, DataOutPacket> mRemoteDrupalPacketList;		
+	public HashMap<String, DataOutPacket> mRemoteDrupalPacketList = new HashMap<String, DataOutPacket>();;		
 	
+	private DrupalUpdateListener mDrupalUpdateListener;
 	
+	private DataOutHandler mInstance;
+	
+	public void setDrupalUpdateListener(DrupalUpdateListener mDrupalUpdateListener) {
+		this.mDrupalUpdateListener = mDrupalUpdateListener;
+	}
+
 	/**
 	 * Sets the AWS table name (applicable only if AWS database is chosen)
 	 * @param awsTableName Name of the table
@@ -324,6 +331,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		mUserId = userId;
 		mSessionDate = sessionDate;
 		mSessionIdEnabled = false;
+		mInstance = this;
 	}
 	
 	/**
@@ -344,6 +352,8 @@ public class DataOutHandler  implements JREngageDelegate {
 		mSessionDate = sessionDate;
 		mSessionIdEnabled = true;
 		mSessionId = sessionId;
+		mInstance = this;
+		
 	}
 	
 	/**
@@ -372,6 +382,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	}
 	
 			
+	
 	/**
 	 * @author scott.coleman
 	 * Task to check the status of an AWS database table
@@ -667,7 +678,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		mAuthenticated = false;
 	}
 	/**
-	 * Sends a data packet to all configured output sinks (Database)
+	 * Sends a data packet (CREATE) to all configured output sinks (Database)
 	 * Actually it just puts it in the mPendingQueue to
 	 * be sent out later 
 	 * 
@@ -698,10 +709,10 @@ public class DataOutHandler  implements JREngageDelegate {
 //			Log.d(TAG, packet.mStr);			
 //		}
 		
-		// First update the in memory packet list
-		mRemoteDrupalPacketList.put(packet.mDrupalNid, packet);		
 		
 		if (mDatabaseEnabled) {
+			// update the in memory packet list
+			mRemoteDrupalPacketList.put(packet.mDrupalNid, packet);		// TODO - change this to callback
 			Log.d(TAG, "Queueing document " + packet.mId);
 
 			synchronized(mPendingQueue) {
@@ -712,11 +723,14 @@ public class DataOutHandler  implements JREngageDelegate {
 
 	public void updateRecord(final DataOutPacket packet) throws DataOutHandlerException {
 		
-		// First update the in memory packet list
-		mRemoteDrupalPacketList.put(packet.mDrupalNid, packet);
+		if (mRequiresAuthentication == true && mAuthenticated == false) {
+			throw new DataOutHandlerException("User is not authenticated");
+		}		
 
 		// Now update the database
 		if (mDatabaseEnabled) {
+			// update the in memory packet list
+			mRemoteDrupalPacketList.put(packet.mDrupalNid, packet);		// TODO - change this to callback
 			packet.mQueuedAction = "U";
 			Log.d(TAG, "Queueing document for Update" + packet.mId);
 
@@ -729,11 +743,14 @@ public class DataOutHandler  implements JREngageDelegate {
 	
 	public void deleteRecord(final DataOutPacket packet) throws DataOutHandlerException {
 		
-		// First update the in memory packet list
-		mRemoteDrupalPacketList.remove(packet.mDrupalNid);
+		if (mRequiresAuthentication == true && mAuthenticated == false) {
+			throw new DataOutHandlerException("User is not authenticated");
+		}		
 
 		// Now update the database
 		if (mDatabaseEnabled) {
+			// update the in memory packet list
+			mRemoteDrupalPacketList.remove(packet.mDrupalNid);	// TODO - change this to callback
 			packet.mQueuedAction = "D";
 			Log.d(TAG, "Queueing document for Delete" + packet.mId);
 
@@ -755,20 +772,29 @@ public class DataOutHandler  implements JREngageDelegate {
         us = new UserServices(mServicesClient);
 
         JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
-            @Override
+            
+        	// We get here for Create or Update operations
+        	@Override
             public void onSuccess(JSONObject response) {
                 try {
-                    String s = response.getString("nid");
-                    Log.d(TAG, "Successfully submitted article # " + s.toString());
+                    String nid = response.getString("nid");
+                    Log.d(TAG, "Successfully submitted article # " + nid);
+                    if (mInstance.mDrupalUpdateListener != null) {
+                    	mInstance.mDrupalUpdateListener.drupalCreateUpdateComplete(nid);
+                    }
                     
                 } catch (JSONException e) {
                     Log.e(TAG, e.toString());
                 }
             }
 
+        	// We get here for Delete operations
 			@Override
 			public void onSuccess(JSONArray arg0) {
                 Log.d(TAG, "Successfully submitted ARRAY " + arg0.toString());
+                if (mInstance.mDrupalUpdateListener != null) {
+                	mInstance.mDrupalUpdateListener.drupalDeleteComplete(arg0.toString());
+                }
 			}
             
             @Override
@@ -837,7 +863,7 @@ public class DataOutHandler  implements JREngageDelegate {
                     	// Now convert the drupal node to a dataOutPacket.                    	
                     	DataOutPacket dataOutPacket = new DataOutPacket(response);
                     	mRemoteDrupalPacketList.put(dataOutPacket.mDrupalNid, dataOutPacket);
-                    	Log.e(TAG, "Adding (" + dataOutPacket.mDrupalNid + ") : "+ dataOutPacket.toString());
+                    	Log.e(TAG, "Fetched (" + dataOutPacket.mDrupalNid + ") : "+ dataOutPacket.toString());
                     	
                     	// Check off node id's received, when we've received the last one notify
                     	// the caller
@@ -845,9 +871,9 @@ public class DataOutHandler  implements JREngageDelegate {
                     	mRemoteDrupalNodeIdListCheckoff.remove(dataOutPacket.mDrupalNid );
 //                    	Log.e(TAG, mRemoteDrupalNodeIdListCheckoff.toString());
 //                    	if (mRemoteDrupalNodeIdListCheckoff.size() == 0) {
-                        if (true) {
+                        if (true) {			// For now update the display every time we get here
                         	if (listener != null) {
-                        		listener.drupalUpdateComplete();
+                        		listener.drupalReadComplete();
                         	}                    		
                     	}
                     	
@@ -1452,6 +1478,18 @@ public class DataOutHandler  implements JREngageDelegate {
 			return this.isRunning;
 		}
 	} // End DispatchThread
+	
+	DataOutPacket RetrievePacketFromDrupal(String title) {
+		
+		// TODO
+		DataOutPacket packet = new DataOutPacket();
+		
+		return packet;
+		
+		
+	}
+	
+	
 	
     /**
      * @return true if network is available
