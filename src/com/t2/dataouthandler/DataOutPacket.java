@@ -30,11 +30,15 @@ package com.t2.dataouthandler;
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.Vector;
 
@@ -161,29 +165,166 @@ public class DataOutPacket implements Serializable {
     	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);	    	
 	}
 	
+	public void add(String tag, float value) {
+		mItemsMap.put(tag.toLowerCase(), value);
+	}
+
+	public void add(String tag, float value, String format) {
+		String strVal = String.format("%s:" + format + ",", tag,value);		
+		mItemsMap.put(tag.toLowerCase(), strVal);
+	}
+
 	public void add(String tag, double value) {
-		mItemsMap.put(tag, value);
+		mItemsMap.put(tag.toLowerCase(), value);
 	}
 
 	public void add(String tag, double value, String format) {
 		String strVal = String.format("%s:" + format + ",", tag,value);		
-		mItemsMap.put(tag, strVal);
+		mItemsMap.put(tag.toLowerCase(), strVal);
 	}
 
 	public void add(String tag, long value) {
-		mItemsMap.put(tag, value);
+		mItemsMap.put(tag.toLowerCase(), value);
 	}
 
 	public void add(String tag, int value) {
-		mItemsMap.put(tag, value);
+		mItemsMap.put(tag.toLowerCase(), value);
 	}
 	
 	public void add(String tag, String value) {
-		mItemsMap.put(tag, value);
+		mItemsMap.put(tag.toLowerCase(), value);
 	}
 
 	public void add(String tag, Vector vector) {
-		mItemsMap.put(tag, vector);
+		mItemsMap.put(tag.toLowerCase(), vector);
+	}
+	
+	
+
+	
+	/**
+	 * Works with any two maps with common key / value types.
+	 * The key type must implement Comparable though (for sorting).
+	 * Returns a map containing all keys that appear in either of the supplied maps.
+	 * The values will be true if and only if either
+	 *   - map1.get(key)==map2.get(key) (values may be null) or
+	 *   - map1.get(key).equals(map2.get(key)).
+	 */
+	public static <K extends Comparable<? super K>, V>
+	Map<K, Boolean> compareEntries(final Map<K, V> map1,
+	    final Map<K, V> map2){
+	    final Collection<K> allKeys = new HashSet<K>();
+	    allKeys.addAll(map1.keySet());
+	    allKeys.addAll(map2.keySet());
+	    final Map<K, Boolean> result = new TreeMap<K, Boolean>();
+	    for(final K key : allKeys){
+	     //   result.put(key,
+	       //     map1.containsKey(key) == map2.containsKey(key) &&
+	      //      Boolean.valueOf(equal(map1.get(key), map2.get(key))));
+	    }
+	    return result;
+	}	
+	
+	boolean compareMaps(HashMap map1, HashMap map2) {
+		
+		Boolean result = true;
+		
+		Set<Object> keys1 = new HashSet<Object>(map1.keySet());
+		Set<Object> keys2 = new HashSet<Object>(map2.keySet());		
+		
+		Set<String> allKeys = new HashSet<String>();
+	    allKeys.addAll(map1.keySet());
+	    allKeys.addAll(map2.keySet());	
+	    
+	    for (String key : allKeys) {
+//	    	Log.i(TAG, "checking key " + key);
+	    	
+	    	// For now ignore drupal id since the remote version might no have it
+	    	if (key.equalsIgnoreCase("drupal_nid")) {
+	    		continue;
+	    	}
+	    	
+//	    	Boolean b1 = map1.containsKey(key);
+//	    	Boolean b2 = map2.containsKey(key);
+	    	Object s1 = (Object) map1.get(key.toLowerCase());
+	    	Object s2 = (Object) map2.get(key.toLowerCase());
+	    	if (s1 != null && s2 != null) {
+	    		
+	    		// Handle odd case of a float value with no dec points
+	    		if (s1 instanceof Double && s2 instanceof String) {
+		    		double ss1 = (Double)s1;
+		    		double ss2 = Double.parseDouble((String)s2.toString());
+
+		    		if (ss1 != ss2) {
+		    			result = false;
+		    		}			    		
+	    		} else if (s1 instanceof Float && s2 instanceof String) {
+		    		float ss1 = (Float)s1;
+		    		float ss2 = Float.parseFloat((String)s2.toString());
+		    		if (ss1 != ss2) {
+		    			result = false;
+		    		}			    		
+	    		} else {
+		    		String ss1 = (String)s1.toString();
+		    		String ss2 = (String)s2.toString();
+		    		
+		    		if (!ss1.equalsIgnoreCase(ss2)) {
+		    			result = false;
+		    		}	    			
+	    		}
+	    		
+	    		
+
+	    		
+
+	    		
+	    	}
+	    	else {
+	    		result = false;
+	    	}
+	    	
+	    	
+	    }
+		
+
+		
+		return result;
+	}	
+	
+	
+	public boolean equals(DataOutPacket packet) {
+		if (this.mCurrentTime != packet.mCurrentTime)
+			return false;
+		
+		if (!this.mId.equalsIgnoreCase(packet.mId))
+			return false;
+		
+
+		// This might not pass if the node id hasn't been updated yet by the dataOutHandler
+//		if (!this.mDrupalNid.equalsIgnoreCase(packet.mDrupalNid))
+//			return false;
+
+		HashMap<String, Object> map1= packet.mItemsMap;
+		HashMap<String, Object> map2= this.mItemsMap;
+		if (!compareMaps(map1, map2)) {
+			return false;
+		}
+		
+		
+		
+		
+		
+//		
+//		add(DataOutHandlerTags.RECORD_ID, mId);
+//    	add(DataOutHandlerTags.TIME_STAMP, mCurrentTime);
+//    	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
+//    	add(DataOutHandlerTags.PLATFORM, "Android");		    	
+//    	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);		
+		
+		
+		
+		
+		return true;
 	}
 	
 	public String toString() {

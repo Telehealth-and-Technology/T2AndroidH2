@@ -326,6 +326,23 @@ public class DataOutHandler  implements JREngageDelegate {
 		return sDataOutHandler;
 	}		
 	
+	
+	public DataOutPacket getPacketByDrupalId(String nodeId) {
+		return mRemoteDrupalPacketCache.get(nodeId);
+	}
+	
+	public DataOutPacket getPacketByRecordId(String recordId) {
+		
+		for (DataOutPacket packet : mRemoteDrupalPacketCache.values()) {
+			if (packet.mId.equalsIgnoreCase(recordId)) {
+				return packet;
+			}
+		}
+		
+		return null;
+	}	
+	
+	
     /**
      * This routine determines which node was removed from Drupal and updates the Cache
      * Uses: mNodeDeleteQueue
@@ -425,8 +442,8 @@ public class DataOutHandler  implements JREngageDelegate {
 //	                	Log.e(TAG,mRemoteDrupalPacketList.toString());
 	                	
 	                	if (mDrupalUpdateListener != null) {
-	                		mDrupalUpdateListener.drupalCreateUpdateComplete("Updated cache from Drupal: (" + dataOutPacket.mDrupalNid + ") : " + dataOutPacket.toString() );
-	                		
+	                		//mDrupalUpdateListener.drupalCreateUpdateComplete("Updated cache from Drupal: (" + dataOutPacket.mDrupalNid + ") : " + dataOutPacket.toString() );
+	                		mDrupalUpdateListener.drupalCreateUpdateComplete(dataOutPacket.mDrupalNid);
 	                	}						
 						
 					} catch (DataOutHandlerException e) {
@@ -1303,6 +1320,10 @@ public class DataOutHandler  implements JREngageDelegate {
 								        }
 								        if (pairs.getValue() instanceof Double) {
 								        	putDrupalNode((String)pairs.getKey(), (Double)pairs.getValue(), item);								        	
+											packet.mLoggingString += formatTextForLog(mDatabaseType, pairs);
+								        }
+								        if (pairs.getValue() instanceof Float) {
+								        	putDrupalNode((String)pairs.getKey(), (Float)pairs.getValue(), item);								        	
 											packet.mLoggingString += formatTextForLog(mDatabaseType, pairs);
 								        }
 								        if (pairs.getValue() instanceof Vector) {
