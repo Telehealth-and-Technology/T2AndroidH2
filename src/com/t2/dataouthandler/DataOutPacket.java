@@ -64,17 +64,28 @@ public class DataOutPacket implements Serializable {
 	/**
 	 * Reconstruct a DataOutPacket from a JSON string (supplied by Drupal)
 	 * @param drupalObject
+	 * @throws DataOutHandlerException 
 	 */
-	public DataOutPacket(JSONObject drupalObject) {
+	public DataOutPacket(JSONObject drupalObject) throws DataOutHandlerException {
 		
 			String itemValue;
 			String itemKey;
+
+			// A valid record MUST have a record_id
+			String recordId;
+			try {
+				recordId = drupalObject.getString("field_record_id");
+				if (recordId == null) {
+    				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
+    		}			
+			} catch (JSONException e2) {
+				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
+			}
 			
 			try {
 				mDrupalNid = drupalObject.getString("nid");
 				add(DataOutHandlerTags.DRUPAL_NODE_ID, mDrupalNid);
 			} catch (JSONException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
 			
@@ -82,7 +93,7 @@ public class DataOutPacket implements Serializable {
 		    while (iter.hasNext()) {
 		        String key = iter.next();
 		        
-		        // Valid DataOutPacket enteries have keys that start with field_"
+		        // Valid DataOutPacket entries have keys that start with field_"
 		        // and contain another object (key = und"
 		        if (key.startsWith("field")) {
 			        try {
@@ -108,41 +119,32 @@ public class DataOutPacket implements Serializable {
 			            			}
 			            			itemKey = key.substring(6, key.length());
 			            			add(itemKey,vector);			            			
-			            			
-			            			
 			            		}
 			            		else {
 				            		JSONObject obj3 = undArrayObj.getJSONObject(0);
 				            		itemValue = obj3.getString("value");
 				            		itemKey = key.substring(6, key.length());
 						            
+				            		// Make sure we have a valid record (Record_id must be greater than 13 characteers
 						            add(itemKey,itemValue);
 				            		if (itemKey.equalsIgnoreCase("record_id")) {
 				            			mId = itemValue;
-				            			mCurrentTime = Long.parseLong(itemValue.substring(0, 13));
 				            			
+				            			if (itemValue.length() >= 13)
+				            				mCurrentTime = Long.parseLong(itemValue.substring(0, 13));
+				            			else
+				            				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
 				            		}
-			            			
 			            		}
-			            		
-			            		
-			            		
-			            		
 			            	}
 			            }
 			        } catch (JSONException e) {
 			        	Log.e(TAG, e.toString());
 			        }
-		        	
 		        }
-		        
 		    }
-		    
-		    Log.d(TAG, "Conversion OK");		    
+	//	    Log.d(TAG, "Conversion OK");		    
 	}	
-	
-	
-	
 	
 	public DataOutPacket() {
     	UUID uuid = UUID.randomUUID();

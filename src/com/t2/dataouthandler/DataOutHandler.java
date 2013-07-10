@@ -275,12 +275,24 @@ public class DataOutHandler  implements JREngageDelegate {
 	 */
 	private List<String> mRemoteDrupalNodeIdList;
 
+	/**
+	 * Used to determine when we are done with fetching all of the Drupal
+	 * nodes form Drupal
+	 */
 	private List<String> mRemoteDrupalNodeIdListCheckoff;
 	
 	/**
 	 * List of dataout packets currently residing in Drupal  
 	 */
-	public HashMap<String, DataOutPacket> mRemoteDrupalPacketList = new HashMap<String, DataOutPacket>();;		
+	public HashMap<String, DataOutPacket> mRemoteDrupalPacketCache = new HashMap<String, DataOutPacket>();		
+	
+
+	/**
+	 * List of node ids which we have reuqested to be deleted from Drupal
+	 */
+	private List<String> mNodeDeleteQueue = new ArrayList<String>();	
+	
+	
 	
 	private DrupalUpdateListener mDrupalUpdateListener;
 	
@@ -314,7 +326,145 @@ public class DataOutHandler  implements JREngageDelegate {
 		return sDataOutHandler;
 	}		
 	
+    /**
+     * This routine determines which node was removed from Drupal and updates the Cache
+     * Uses: mNodeDeleteQueue
+     */
+    public void removePacketFromRemoteDrupalPacketCache() {
+   	 UserServices us;
+        int nodeNum = 0;
+        
+        us = new UserServices(mServicesClient);
+
+        JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
+        	
+        	@Override
+			protected void handleSuccessJsonMessage(Object arg0) {
+        		// Accumulate a list of all of the current node id's in currentNodeIdList
+        		JSONArray array = (JSONArray) arg0;
+				mRemoteDrupalNodeIdList = new ArrayList<String>();	        		
+                for (int i = 0; i < array.length(); i++) {
+                	JSONObject jObject  = (JSONObject) array.opt(i);
+                	try {
+						String nodeId = (String) jObject.get("nid");
+						mRemoteDrupalNodeIdList.add(nodeId);
+					} catch (JSONException e) {
+						e.printStackTrace();
+					}
+                }
+                
+                // Now mRemoteDrupalNodeIdList contains a list of all nodes contained in Drupal
+                // We've successfully deleted a node from Drupal.
+                // The problem is there is no indication of which node was deleted!
+                // So now we need to use the array mNodeDeleteQueue to
+                // determine which node was deleted, then delete that from the cache
+                for (String nid : mNodeDeleteQueue) {
+                	if (!mRemoteDrupalNodeIdList.contains(nid)) {
+            			mRemoteDrupalPacketCache.remove(nid);
+                        if (mInstance.mDrupalUpdateListener != null) {
+                        	mInstance.mDrupalUpdateListener.drupalDeleteComplete(nid);
+                        }                
+                	}
+                }
+			}
+
+			@Override
+            public void onSuccess(JSONObject response) {
+            }
+
+			@Override
+			public void onSuccess(JSONArray arg0) {
+				super.onSuccess(arg0);
+			}
+
+            
+            @Override
+            public void onFailure(Throwable e, JSONObject response) {
+                Log.e(TAG, e.toString());
+            }
+            
+            @Override
+			public void onFailure(Throwable arg0, JSONArray arg1) {
+                Log.e(TAG, arg0.toString());
+			}
+
+			@Override
+            public void onFinish() {
+                Log.d(TAG, "onFinish()");
+            	
+            }
+        };        
+        
+        us.NodeGet(responseHandler);
+   }	
 	
+	
+    /**
+     * Retrieves the contents of the updated packet from Drupal and  updates the Cache
+     * 
+     * @param DrupalNodeId node id of drupal packet added
+     */
+    void addPacketToRemoteDrupalPacketCache(String DrupalNodeId) {
+        UserServices us;
+        int nodeNum = 0;
+        
+        us = new UserServices(mServicesClient);    	
+
+        JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
+
+			@Override
+            public void onSuccess(JSONObject response) {
+                	String drupalNodeContents = response.toString();
+                	// Now convert the drupal node to a dataOutPacket.                    	
+                	DataOutPacket dataOutPacket;
+					try {
+						dataOutPacket = new DataOutPacket(response);
+						
+						mRemoteDrupalPacketCache.put(dataOutPacket.mDrupalNid, dataOutPacket);
+	                	
+//	                	Log.e(TAG,mRemoteDrupalPacketList.toString());
+	                	
+	                	if (mDrupalUpdateListener != null) {
+	                		mDrupalUpdateListener.drupalCreateUpdateComplete("Updated cache from Drupal: (" + dataOutPacket.mDrupalNid + ") : " + dataOutPacket.toString() );
+	                		
+	                	}						
+						
+					} catch (DataOutHandlerException e) {
+						Log.e(TAG, e.toString());
+						//e.printStackTrace();
+					}
+            }
+
+			@Override
+			public void onSuccess(JSONArray arg0) {
+				super.onSuccess(arg0);
+			}
+            
+            @Override
+            public void onFailure(Throwable e, JSONObject response) {
+                Log.e(TAG, e.toString());
+            }
+            
+            @Override
+			public void onFailure(Throwable arg0, JSONArray arg1) {
+                Log.e(TAG, arg0.toString());
+			}
+
+			@Override
+            public void onFinish() {
+                Log.d(TAG, "onFinish()");
+            	
+            }
+        };        
+        
+        
+    	try {
+    		nodeNum = Integer.parseInt(DrupalNodeId);
+            us.NodeGet(nodeNum, responseHandler);
+		} catch (NumberFormatException e1) {
+			Log.e(TAG, e1.toString());
+		}
+    }	
 	
 	
 	/**
@@ -353,7 +503,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		mSessionIdEnabled = true;
 		mSessionId = sessionId;
 		mInstance = this;
-		
 	}
 	
 	/**
@@ -489,6 +638,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
 		String databaseTypeString = mSharedPreferences.getString("external_database_type", "AWS");
 
+		
 		// Based on database type:
 		// 	Set up mRemoteDatabase based on either remoteDatabase if it's not blank,
 		// 	or default values based on database type
@@ -677,42 +827,48 @@ public class DataOutHandler  implements JREngageDelegate {
 		mT2AuthDelegate = null;
 		mAuthenticated = false;
 	}
+	
+	
+
 	/**
 	 * Sends a data packet (CREATE) to all configured output sinks (Database)
 	 * Actually it just puts it in the mPendingQueue to
 	 * be sent out later 
 	 * 
 	 * @param packet - data Packet to send to output sinks
-	 * @throws DataOutHandlerException 
+	 * @throws DataOutHandlerException
+	 * 
+	 * Note: The data path is a bit circuitous and is explained here (It's the same for update)
+	 *    (Two dips are needed from drupal because the "CREATE" operation only returns the
+	 *    drupal node id and we need the whole package)
+	 * 
+	 * Data path (for drupal):
+	 * 	handleDataOut(packet)
+	 *		mPendingQueue.add(packet); packet action = "U"
+	 *  Dispatch Thread
+	 *		packet = mPendingQueue.get()
+	 *			drupalNodePut(packet)
+	 *				us = new UserServices(mServicesClient);
+	 *				us.NodePost(jsonString, responseHandler)  -> To Drupal
+	 *			onSuccess()                                   <- From Drupal
+	 *				addPacketToRemoteDrupalPacketCache(DrupalNodeId)
+	 *					us = new UserServices(mServicesClient);
+	 *					us.NodeGet(DrupalNodeId, responseHandler);		-> To Drupal
+	 *			onSuccess()                                   			<- From Drupal
+	 *				mRemoteDrupalPacketCache.put(packet.mDrupalNid, packet);
+	 *				mDrupalUpdateListener.drupalCreateUpdateComplete(nid);
+	 *  MainActivity
+	 *				Update displayList  
+	 *  
 	 */
 	public void handleDataOut(final DataOutPacket packet) throws DataOutHandlerException {
-			
 
 		if (mRequiresAuthentication == true && mAuthenticated == false) {
 			throw new DataOutHandlerException("User is not authenticated");
 		}
-		int i = 0;
-		i++;
-		
-		
-		//packet.mItem.put("data", packet.mData);		
-		
-//		if (mLogFormat == LOG_FORMAT_JSON) {
-//			packet.mStr += "},";
-//		}
-//
-//		if (mLoggingEnabled) {	
-//			mLogWriter.write(packet.mStr);
-//		}
-//
-//		if (mLogCatEnabled) {
-//			Log.d(TAG, packet.mStr);			
-//		}
-		
 		
 		if (mDatabaseEnabled) {
-			// update the in memory packet list
-			mRemoteDrupalPacketList.put(packet.mDrupalNid, packet);		// TODO - change this to callback
+			packet.mQueuedAction = "C";
 			Log.d(TAG, "Queueing document " + packet.mId);
 
 			synchronized(mPendingQueue) {
@@ -721,6 +877,14 @@ public class DataOutHandler  implements JREngageDelegate {
 		}
 	}	
 
+	/**
+	 * Updates a packet in the database
+	 * 
+	 * See handleDataOut() for the data path (Drupal)
+	 * 
+	 * @param packet Packet to update
+	 * @throws DataOutHandlerException
+	 */
 	public void updateRecord(final DataOutPacket packet) throws DataOutHandlerException {
 		
 		if (mRequiresAuthentication == true && mAuthenticated == false) {
@@ -729,8 +893,6 @@ public class DataOutHandler  implements JREngageDelegate {
 
 		// Now update the database
 		if (mDatabaseEnabled) {
-			// update the in memory packet list
-			mRemoteDrupalPacketList.put(packet.mDrupalNid, packet);		// TODO - change this to callback
 			packet.mQueuedAction = "U";
 			Log.d(TAG, "Queueing document for Update" + packet.mId);
 
@@ -738,9 +900,37 @@ public class DataOutHandler  implements JREngageDelegate {
 				mPendingQueue.add(0,  packet);
 			}
 		}		
-		
 	}
 	
+	/**
+	 * Deletes a packet from the database
+	 * 
+	 * 
+	 * Data path (for drupal):
+	 * 	handleDataOut(packet)
+	 *		mPendingQueue.add(packet); Packet action = "D"
+	 *  Dispatch Thread
+	 *		packet = mPendingQueue.get()
+	 *			drupalNodePut(packet)
+	 *				us = new UserServices(mServicesClient);
+	 *				us.NodePost(jsonString, responseHandler)  -> To Drupal
+	 *			onSuccess()                                   <- From Drupal
+	 *				removePacketFromRemoteDrupalPacketCache(DrupalNodeId)
+	 *					us = new UserServices(mServicesClient);
+	 *					us.NodeGet(responseHandler);		-> To Drupal (Requests list of id's)
+	 *			handleSuccessJsonMessage()                  <- From Drupal
+	 *					determine which packet was deleted from Drupal
+	 *
+	 *           		mRemoteDrupalPacketCache.remove(nid);
+                        mInstance.mDrupalUpdateListener.drupalDeleteComplete(nid);
+	 *  MainActivity
+	 *				Update displayList 
+	 * 
+	 * 
+	 * 
+	 * @param packet Packet to delete
+	 * @throws DataOutHandlerException
+	 */
 	public void deleteRecord(final DataOutPacket packet) throws DataOutHandlerException {
 		
 		if (mRequiresAuthentication == true && mAuthenticated == false) {
@@ -749,8 +939,12 @@ public class DataOutHandler  implements JREngageDelegate {
 
 		// Now update the database
 		if (mDatabaseEnabled) {
-			// update the in memory packet list
-			mRemoteDrupalPacketList.remove(packet.mDrupalNid);	// TODO - change this to callback
+            // Drupal rest service has a limitation that it doesn't return an indication
+			// of which node was deleted. Therefore we must manually keep track of
+			// the nodes we have requested to be deleted
+			mNodeDeleteQueue.add(packet.mDrupalNid);
+			
+			
 			packet.mQueuedAction = "D";
 			Log.d(TAG, "Queueing document for Delete" + packet.mId);
 
@@ -758,9 +952,7 @@ public class DataOutHandler  implements JREngageDelegate {
 				mPendingQueue.add(0,  packet);
 			}
 		}		
-		
 	}
-		
 	
     /**
      * Sends a specific json string to Drupal database for processing
@@ -779,9 +971,8 @@ public class DataOutHandler  implements JREngageDelegate {
                 try {
                     String nid = response.getString("nid");
                     Log.d(TAG, "Successfully submitted article # " + nid);
-                    if (mInstance.mDrupalUpdateListener != null) {
-                    	mInstance.mDrupalUpdateListener.drupalCreateUpdateComplete(nid);
-                    }
+                    
+                    addPacketToRemoteDrupalPacketCache(nid);
                     
                 } catch (JSONException e) {
                     Log.e(TAG, e.toString());
@@ -792,9 +983,9 @@ public class DataOutHandler  implements JREngageDelegate {
 			@Override
 			public void onSuccess(JSONArray arg0) {
                 Log.d(TAG, "Successfully submitted ARRAY " + arg0.toString());
-                if (mInstance.mDrupalUpdateListener != null) {
-                	mInstance.mDrupalUpdateListener.drupalDeleteComplete(arg0.toString());
-                }
+                
+                removePacketFromRemoteDrupalPacketCache();                
+
 			}
             
             @Override
@@ -815,8 +1006,6 @@ public class DataOutHandler  implements JREngageDelegate {
             }
         };        
         
-        
-        
         if (queuedAction.equalsIgnoreCase("C")) {
             us.NodePost(jsonString, responseHandler);
         }
@@ -827,93 +1016,6 @@ public class DataOutHandler  implements JREngageDelegate {
             us.NodeDelete(responseHandler, drupalNodeId);
         }
     } 	
-		
-//    boolean UpdateRemoteDrupalPacketList (DataOutPacket newPacket) {
-//    	boolean found = false;
-//    	for (DataOutPacket OkdPacket : mRemoteDrupalPacketList) {
-//    		if (newPacket.mItemsMap) {
-//    			
-//    		}
-//    	}
-//    	    	
-//    }
-    
-    
-    
-    /**
-     *   Calls Gets each node id from mRemoteDrupalNodeIdList to 
-     *   and fills mRemoteDrupalPacketList with the actual packets   
-     */
-    void getDrupalNodesFromRemoteDrupalNodeIdList(final DrupalUpdateListener listener) {
-        UserServices us;
-        int nodeNum = 0;
-        mRemoteDrupalPacketList = new HashMap<String, DataOutPacket>();
-        
-        us = new UserServices(mServicesClient);    	
-
-        mRemoteDrupalNodeIdListCheckoff = mRemoteDrupalNodeIdList;
-        
-    	for (String nid : mRemoteDrupalNodeIdList) {
-    		
-            JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
-
-    			@Override
-                public void onSuccess(JSONObject response) {
-                    	String drupalNodeContents = response.toString();
-                    	// Now convert the drupal node to a dataOutPacket.                    	
-                    	DataOutPacket dataOutPacket = new DataOutPacket(response);
-                    	mRemoteDrupalPacketList.put(dataOutPacket.mDrupalNid, dataOutPacket);
-                    	Log.e(TAG, "Fetched (" + dataOutPacket.mDrupalNid + ") : "+ dataOutPacket.toString());
-                    	
-                    	// Check off node id's received, when we've received the last one notify
-                    	// the caller
-//                    	Log.e(TAG, mRemoteDrupalNodeIdListCheckoff.toString());
-                    	mRemoteDrupalNodeIdListCheckoff.remove(dataOutPacket.mDrupalNid );
-//                    	Log.e(TAG, mRemoteDrupalNodeIdListCheckoff.toString());
-//                    	if (mRemoteDrupalNodeIdListCheckoff.size() == 0) {
-                        if (true) {			// For now update the display every time we get here
-                        	if (listener != null) {
-                        		listener.drupalReadComplete();
-                        	}                    		
-                    	}
-                    	
-                }
-
-    			@Override
-    			public void onSuccess(JSONArray arg0) {
-    				super.onSuccess(arg0);
-    			}
-
-                
-                @Override
-                public void onFailure(Throwable e, JSONObject response) {
-                    Log.e(TAG, e.toString());
-                }
-                
-                @Override
-    			public void onFailure(Throwable arg0, JSONArray arg1) {
-                    Log.e(TAG, arg0.toString());
-    			}
-
-    			@Override
-                public void onFinish() {
-                    Log.d(TAG, "onFinish()");
-                	
-                }
-            };        
-            
-            
-        	try {
-        		nodeNum = Integer.parseInt(nid);
-                us.NodeGet(nodeNum, responseHandler);
-			} catch (NumberFormatException e1) {
-			}
-    	}
-    	
-
-    	
-    }
-    
     
     /**
      * 
@@ -921,15 +1023,15 @@ public class DataOutHandler  implements JREngageDelegate {
      *   Polls remote Drupal database and fills mRemoteDrupalNodeIdList
      *   with a list of current node id's
      * Part B - 
-     *   Calls getDrupalNodesFromRemoteDrupalNodeIdList to fill mRemoteDrupalPacketList
+     *   Calls getDrupalNodesFromRemoteDrupalNodeIdList to fill mRemoteDrupalPacketcACHE
      */
-    public void getRemoteDrupalNodes(final DrupalUpdateListener listener) {
+    public void getRemoteDrupalNodes() {
     	 UserServices us;
          int nodeNum = 0;
          
          us = new UserServices(mServicesClient);
 
-        JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
+         JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
          	
          	@Override
  			protected void handleSuccessJsonMessage(Object arg0) {
@@ -946,7 +1048,7 @@ public class DataOutHandler  implements JREngageDelegate {
  					}
                  }
                  
-                 getDrupalNodesFromRemoteDrupalNodeIdList(listener);                
+                 getDrupalNodesFromRemoteDrupalNodeIdList();                
          		
          		Log.e(TAG, array.toString());
  			}
@@ -978,16 +1080,90 @@ public class DataOutHandler  implements JREngageDelegate {
              }
          };        
          
-             us.NodeGet(responseHandler);
+         us.NodeGet(responseHandler);
     }
     
-    
-    
+    /**
+     *   Part B (from above)
+     *   Calls Gets each node id from mRemoteDrupalNodeIdList to 
+     *   and fills mRemoteDrupalPacketcACHE with the actual packets   
+     */
+    void getDrupalNodesFromRemoteDrupalNodeIdList() {
+        UserServices us;
+        int nodeNum = 0;
+        mRemoteDrupalPacketCache = new HashMap<String, DataOutPacket>();
+        
+        us = new UserServices(mServicesClient);    	
+
+        mRemoteDrupalNodeIdListCheckoff = mRemoteDrupalNodeIdList;
+        
+    	for (String nid : mRemoteDrupalNodeIdList) {
+    		
+            JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
+
+    			@Override
+                public void onSuccess(JSONObject response) {
+                    	String drupalNodeContents = response.toString();
+                    	// Now convert the drupal node to a dataOutPacket.                    	
+                    	DataOutPacket dataOutPacket;
+						try {
+							dataOutPacket = new DataOutPacket(response);
+	                    	mRemoteDrupalPacketCache.put(dataOutPacket.mDrupalNid, dataOutPacket);
+	                    	Log.e(TAG, "Fetched (" + dataOutPacket.mDrupalNid + ") : "+ dataOutPacket.toString());
+	                    	
+	                    	// Check off node id's received, when we've received the last one notify
+	                    	// the caller
+//	                    	Log.e(TAG, mRemoteDrupalNodeIdListCheckoff.toString());
+	                    	mRemoteDrupalNodeIdListCheckoff.remove(dataOutPacket.mDrupalNid );
+//	                    	Log.e(TAG, mRemoteDrupalNodeIdListCheckoff.toString());
+//	                    	if (mRemoteDrupalNodeIdListCheckoff.size() == 0) {
+	                        if (true) {			// For now update the display every time we get here
+	                        	if (mDrupalUpdateListener != null) {
+	                        		mDrupalUpdateListener.drupalReadComplete();
+	                        	}                    		
+	                    	}
+						} catch (DataOutHandlerException e) {
+							Log.e(TAG, e.toString());
+							//e.printStackTrace();
+	                      	if (mDrupalUpdateListener != null) {
+                        		mDrupalUpdateListener.drupalReadComplete();
+                        	}							
+						}
+                }
+
+    			@Override
+    			public void onSuccess(JSONArray arg0) {
+    				super.onSuccess(arg0);
+    			}
+
+                @Override
+                public void onFailure(Throwable e, JSONObject response) {
+                    Log.e(TAG, e.toString());
+                }
+                
+                @Override
+    			public void onFailure(Throwable arg0, JSONArray arg1) {
+                    Log.e(TAG, arg0.toString());
+    			}
+
+    			@Override
+                public void onFinish() {
+                    Log.d(TAG, "onFinish()");
+                }
+            };        
+            
+        	try {
+        		nodeNum = Integer.parseInt(nid);
+                us.NodeGet(nodeNum, responseHandler);
+			} catch (NumberFormatException e1) {
+			}
+    	}
+    }    
     
     /**
+     * Retrieves a specific drupal node
      * 
-     * 
-     * @param jsonString
+     * @param jsonString - Drupal node id of node to return
      */
     public void drupalNodeGet(String nodeStr) {
         UserServices us;
@@ -1002,7 +1178,6 @@ public class DataOutHandler  implements JREngageDelegate {
 				nodeStr = "*";
 			
 			}
-        	
         }
         
         JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
@@ -1024,7 +1199,6 @@ public class DataOutHandler  implements JREngageDelegate {
 				// TODO Auto-generated method stub
 				super.onSuccess(arg0);
 			}
-
             
             @Override
             public void onFailure(Throwable e, JSONObject response) {
@@ -1049,7 +1223,6 @@ public class DataOutHandler  implements JREngageDelegate {
         else {
             us.NodeGet(nodeNum, responseHandler);
         }
-        
     }     
 	
 	/**
@@ -1397,7 +1570,6 @@ public class DataOutHandler  implements JREngageDelegate {
 			undNode.put("und", arrayNode);			
 			node.put(newTag, undNode);
 		}
-				
 		
 		/**
 		 * Formats a string that can be use for log files.
@@ -1479,18 +1651,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		}
 	} // End DispatchThread
 	
-	DataOutPacket RetrievePacketFromDrupal(String title) {
-		
-		// TODO
-		DataOutPacket packet = new DataOutPacket();
-		
-		return packet;
-		
-		
-	}
-	
-	
-	
     /**
      * @return true if network is available
      */
@@ -1517,10 +1677,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		packet.add(DataOutHandlerTags.NOTE, note);
 		handleDataOut(packet);				
 	}
-    
-    
-    // JanRain Delegates (status callbacks)
-    
     
 	@Override
 	public void jrAuthenticationDidSucceedForUser(JRDictionary auth_info,
@@ -1563,17 +1719,9 @@ public class DataOutHandler  implements JREngageDelegate {
         	}			
 		}
 		
-		
-		
 		mAuthenticated = true;
 		if (mT2AuthDelegate != null) {
 			mT2AuthDelegate.T2AuthSuccess(mAuth_info, mAuthProvider, responseHeaders, responsePayload);
-			
-			// TMP Get all drupal nodes for a test
-//			drupalNodesGet();			
-			
-			
-			
 		}
 	}
 
