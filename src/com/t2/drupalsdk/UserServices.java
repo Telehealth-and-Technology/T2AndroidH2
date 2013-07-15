@@ -69,7 +69,8 @@ public class UserServices {
 		try {
 			params = new JSONObject(jsonString);
 	        mServicesClient.post("node", params, responseHandler);
-		} catch (JSONException e) {
+//		} catch (JSONException e) {
+		} catch (Exception e) {
 			Log.e(TAG,  e.toString());
 			e.printStackTrace();
 		}

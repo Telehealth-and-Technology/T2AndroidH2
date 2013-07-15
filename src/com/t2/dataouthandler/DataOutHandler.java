@@ -407,7 +407,7 @@ public class DataOutHandler  implements JREngageDelegate {
 
 			@Override
             public void onFinish() {
-                Log.d(TAG, "onFinish()");
+                Log.d(TAG, "onFinish(removePacketFromRemoteDrupalPacketCache)");
             	
             }
         };        
@@ -431,6 +431,7 @@ public class DataOutHandler  implements JREngageDelegate {
 
 			@Override
             public void onSuccess(JSONObject response) {
+				
                 	String drupalNodeContents = response.toString();
                 	// Now convert the drupal node to a dataOutPacket.                    	
                 	DataOutPacket dataOutPacket;
@@ -460,16 +461,23 @@ public class DataOutHandler  implements JREngageDelegate {
             @Override
             public void onFailure(Throwable e, JSONObject response) {
                 Log.e(TAG, e.toString());
+            	if (mDrupalUpdateListener != null) {
+            		mDrupalUpdateListener.drupalFailure(e.toString());
+            	}	                
             }
             
             @Override
 			public void onFailure(Throwable arg0, JSONArray arg1) {
                 Log.e(TAG, arg0.toString());
+            	if (mDrupalUpdateListener != null) {
+            		mDrupalUpdateListener.drupalFailure(arg0.toString());
+            	}	                
+                
 			}
 
 			@Override
             public void onFinish() {
-                Log.d(TAG, "onFinish()");
+                Log.d(TAG, "onFinish(addPacketToRemoteDrupalPacketCache)");
             	
             }
         };        
@@ -677,7 +685,14 @@ public class DataOutHandler  implements JREngageDelegate {
 				// Note: for AWS we don't supply a token URL, thats
 				// only for interfacing with Drupal
 		        mEngage = JREngage.initInstance(mContext, mEngageAppId, "", this);
-//		        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
+
+		        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
+		        // As odd as it seems, this ensures that only one delegate gets added per instance.
+		        mEngage.removeDelegate(this);
+		        mEngage.addDelegate(this);
+		        
+		        
+		        //		        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
 		        JREngage.blockOnInitialization();
 
 				
@@ -755,12 +770,19 @@ public class DataOutHandler  implements JREngageDelegate {
 	/**
 	 * Cancells authentication
 	 */
-	public void logOut() {
+	public void logOut(Context context) {
 		Log.d(TAG, "DataOuthandler Logging out");		
 		mAuthenticated = false;
 		drupalSessionCookie = null;
-        mCookieStore.clear();
-        mServicesClient.setCookieStore(mCookieStore);         
+        
+		if (mCookieStore != null) {
+			mCookieStore.clear();
+	        mServicesClient.setCookieStore(mCookieStore);   
+		}
+        
+        if (mEngage != null) {
+        	mEngage.removeDelegate((JREngageDelegate) context);
+        }
 	}
 	
 	
@@ -1008,17 +1030,23 @@ public class DataOutHandler  implements JREngageDelegate {
             @Override
             public void onFailure(Throwable e, JSONObject response) {
                 Log.e(TAG, e.toString());
+            	if (mDrupalUpdateListener != null) {
+            		mDrupalUpdateListener.drupalFailure(e.toString());
+            	}	                 
             }
             
             @Override
 			public void onFailure(Throwable arg0, JSONArray arg1) {
                 Log.e(TAG, arg0.toString());
+            	if (mDrupalUpdateListener != null) {
+            		mDrupalUpdateListener.drupalFailure(arg0.toString());
+            	}	                 
 			}
 
 
 			@Override
             public void onFinish() {
-                Log.d(TAG, "onFinish()");
+                Log.d(TAG, "onFinish(drupalNodePut)");
             	
             }
         };        

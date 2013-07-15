@@ -29,12 +29,14 @@ package com.t2.dataouthandler;
 
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
@@ -199,34 +201,11 @@ public class DataOutPacket implements Serializable {
 		mItemsMap.put(tag.toLowerCase(), vector);
 	}
 	
+	public String get(String tag) {
+		return (String) mItemsMap.get(tag.toLowerCase().toString());
+	}
 	
-
-	
-	/**
-	 * Works with any two maps with common key / value types.
-	 * The key type must implement Comparable though (for sorting).
-	 * Returns a map containing all keys that appear in either of the supplied maps.
-	 * The values will be true if and only if either
-	 *   - map1.get(key)==map2.get(key) (values may be null) or
-	 *   - map1.get(key).equals(map2.get(key)).
-	 */
-	public static <K extends Comparable<? super K>, V>
-	Map<K, Boolean> compareEntries(final Map<K, V> map1,
-	    final Map<K, V> map2){
-	    final Collection<K> allKeys = new HashSet<K>();
-	    allKeys.addAll(map1.keySet());
-	    allKeys.addAll(map2.keySet());
-	    final Map<K, Boolean> result = new TreeMap<K, Boolean>();
-	    for(final K key : allKeys){
-	     //   result.put(key,
-	       //     map1.containsKey(key) == map2.containsKey(key) &&
-	      //      Boolean.valueOf(equal(map1.get(key), map2.get(key))));
-	    }
-	    return result;
-	}	
-	
-	boolean compareMaps(HashMap map1, HashMap map2) {
-		
+	boolean compareMaps(HashMap map1, HashMap map2, List ignoreList) {
 		Boolean result = true;
 		
 		Set<Object> keys1 = new HashSet<Object>(map1.keySet());
@@ -244,8 +223,12 @@ public class DataOutPacket implements Serializable {
 	    		continue;
 	    	}
 	    	
-//	    	Boolean b1 = map1.containsKey(key);
-//	    	Boolean b2 = map2.containsKey(key);
+	    	if (ignoreList != null) {
+	    		if (ignoreList.contains(key.toLowerCase()))
+	    			continue;
+	    	}
+	    	
+	    	
 	    	Object s1 = (Object) map1.get(key.toLowerCase());
 	    	Object s2 = (Object) map2.get(key.toLowerCase());
 	    	if (s1 != null && s2 != null) {
@@ -256,12 +239,14 @@ public class DataOutPacket implements Serializable {
 		    		double ss2 = Double.parseDouble((String)s2.toString());
 
 		    		if (ss1 != ss2) {
+		    			Log.e(TAG, "Key (" +key + ") - Unequal parameter: " + ss1 + "!= " + ss2);
 		    			result = false;
 		    		}			    		
 	    		} else if (s1 instanceof Float && s2 instanceof String) {
 		    		float ss1 = (Float)s1;
 		    		float ss2 = Float.parseFloat((String)s2.toString());
 		    		if (ss1 != ss2) {
+		    			Log.e(TAG, "Key (" + key + ") - Unequal parameter: " + ss1 + "!= " + ss2);
 		    			result = false;
 		    		}			    		
 	    		} else {
@@ -269,36 +254,68 @@ public class DataOutPacket implements Serializable {
 		    		String ss2 = (String)s2.toString();
 		    		
 		    		if (!ss1.equalsIgnoreCase(ss2)) {
+		    			Log.e(TAG, "Key (" + key + ") - Unequal parameter: " + ss1 + "!= " + ss2);
 		    			result = false;
 		    		}	    			
 	    		}
-	    		
-	    		
-
-	    		
-
-	    		
 	    	}
 	    	else {
-	    		result = false;
-	    	}
-	    	
-	    	
-	    }
-		
+	    		String sss1, sss2;
+	    		if (s1 != null)
+		    		sss1 = (String)s1.toString();
+	    		else
+	    			sss1 = "null";
 
-		
+	    		if (s2 != null)
+		    		sss2 = (String)s2.toString();
+	    		else
+	    			sss2 = "null";
+    			Log.e(TAG, "Key (" + key + ") - Unequal parameter: " + sss1 + "!= " + sss2);
+
+	    			
+	    			result = false;
+	    	}
+	    }
 		return result;
+	}
+	
+	public boolean equalsIgnoreTag(DataOutPacket packet, List ignoreList) {
+		if (!ignoreList.contains("time_stamp")) {
+			if (this.mCurrentTime != packet.mCurrentTime) {
+    			Log.e(TAG, "Key (" + "time_stamp" + ") - Unequal parameter: " + this.mCurrentTime + "!= " + packet.mCurrentTime);
+				return false;
+			}
+		}		
+		if(!ignoreList.contains("record_id")) {
+			if (!this.mId.equalsIgnoreCase(packet.mId)) {
+    			Log.e(TAG, "Key (" + "record_id" + ") - Unequal parameter: " + this.mCurrentTime + "!= " + packet.mCurrentTime);
+				return false;
+			}
+		}
+
+		// This might not pass if the node id hasn't been updated yet by the dataOutHandler
+//		if (!this.mDrupalNid.equalsIgnoreCase(packet.mDrupalNid))
+//			return false;
+
+		HashMap<String, Object> map1 = packet.mItemsMap;
+		HashMap<String, Object> map2 = this.mItemsMap;
+		
+		if (!compareMaps(map1, map2, ignoreList)) {
+			return false;
+		}
+		return true;
 	}	
 	
-	
 	public boolean equals(DataOutPacket packet) {
-		if (this.mCurrentTime != packet.mCurrentTime)
+		if (this.mCurrentTime != packet.mCurrentTime) {
+			Log.e(TAG, "Key (" + "packet.mCurrentTime" + ") - Unequal parameter: " + this.mCurrentTime + "!= " + packet.mCurrentTime);
 			return false;
+		}
 		
-		if (!this.mId.equalsIgnoreCase(packet.mId))
+		if (!this.mId.equalsIgnoreCase(packet.mId)) {
+			Log.e(TAG, "Key (" + "packet.mId" + ") - Unequal parameter: " + this.mCurrentTime + "!= " + packet.mCurrentTime);
 			return false;
-		
+		}
 
 		// This might not pass if the node id hasn't been updated yet by the dataOutHandler
 //		if (!this.mDrupalNid.equalsIgnoreCase(packet.mDrupalNid))
@@ -306,24 +323,9 @@ public class DataOutPacket implements Serializable {
 
 		HashMap<String, Object> map1= packet.mItemsMap;
 		HashMap<String, Object> map2= this.mItemsMap;
-		if (!compareMaps(map1, map2)) {
+		if (!compareMaps(map1, map2, null)) {
 			return false;
 		}
-		
-		
-		
-		
-		
-//		
-//		add(DataOutHandlerTags.RECORD_ID, mId);
-//    	add(DataOutHandlerTags.TIME_STAMP, mCurrentTime);
-//    	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
-//    	add(DataOutHandlerTags.PLATFORM, "Android");		    	
-//    	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);		
-		
-		
-		
-		
 		return true;
 	}
 	
@@ -331,27 +333,27 @@ public class DataOutPacket implements Serializable {
 		String result = "";
 		
 		result += mId + ", ";
-//		   Iterator it = mItemsMap.entrySet().iterator();
-//		    while (it.hasNext()) {
-//		        Map.Entry pairs = (Map.Entry)it.next();
-//		        result += pairs.getKey() + " = " + pairs.getValue() + ", ";
-//		        
-//		        if (pairs.getValue() instanceof Integer) {
-//		        	result += "{INTEGER} + ";
-//		        }
-//		        if (pairs.getValue() instanceof String) {
-//		        	result += "{String} + ";
-//		        }
-//		        if (pairs.getValue() instanceof Long) {
-//		        	result += "{Long} + ";
-//		        }
-//		        if (pairs.getValue() instanceof Double) {
-//		        	result += "{Long} + ";
-//		        }
-//		        if (pairs.getValue() instanceof Vector) {
-//		        	result += "{Vector} + ";
-//		        }
-//		    }		
+		   Iterator it = mItemsMap.entrySet().iterator();
+		    while (it.hasNext()) {
+		        Map.Entry pairs = (Map.Entry)it.next();
+		        result += pairs.getKey() + " = " + pairs.getValue() + ", ";
+		        
+		        if (pairs.getValue() instanceof Integer) {
+		        	result += "{INTEGER} + ";
+		        }
+		        if (pairs.getValue() instanceof String) {
+		        	result += "{String} + ";
+		        }
+		        if (pairs.getValue() instanceof Long) {
+		        	result += "{Long} + ";
+		        }
+		        if (pairs.getValue() instanceof Double) {
+		        	result += "{Long} + ";
+		        }
+		        if (pairs.getValue() instanceof Vector) {
+		        	result += "{Vector} + ";
+		        }
+		    }		
 		return result;
 	}
 
