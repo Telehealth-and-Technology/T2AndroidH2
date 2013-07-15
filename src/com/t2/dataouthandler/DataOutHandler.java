@@ -79,7 +79,6 @@ import com.t2.dataouthandler.DataOutHandlerTags;
 import com.t2.dataouthandler.T2AuthDelegate;
 import com.t2.dataouthandler.T2RestClient;
 import com.t2.dataouthandler.T2RestPacket;
-import com.t2.drupalsdk.DrupalUpdateListener;
 import com.t2.drupalsdk.ServicesClient;
 import com.t2.drupalsdk.UserServices;
 
@@ -282,9 +281,9 @@ public class DataOutHandler  implements JREngageDelegate {
 	private List<String> mRemoteDrupalNodeIdListCheckoff;
 	
 	/**
-	 * List of dataout packets currently residing in Drupal  
+	 * List of dataout packets currently residing in remote database  
 	 */
-	public HashMap<String, DataOutPacket> mRemoteDrupalPacketCache = new HashMap<String, DataOutPacket>();		
+	public HashMap<String, DataOutPacket> mRemotePacketCache = new HashMap<String, DataOutPacket>();		
 	
 
 	/**
@@ -294,12 +293,12 @@ public class DataOutHandler  implements JREngageDelegate {
 	
 	
 	
-	private DrupalUpdateListener mDrupalUpdateListener;
+	private DatabaseCacheUpdateListener mDatabaseUpdateListener;
 	
 	private DataOutHandler mInstance;
 	
-	public void setDrupalUpdateListener(DrupalUpdateListener mDrupalUpdateListener) {
-		this.mDrupalUpdateListener = mDrupalUpdateListener;
+	public void setDatabaseUpdateListener(DatabaseCacheUpdateListener mDatabaseUpdateListener) {
+		this.mDatabaseUpdateListener = mDatabaseUpdateListener;
 	}
 
 	/**
@@ -328,12 +327,12 @@ public class DataOutHandler  implements JREngageDelegate {
 	
 	
 	public DataOutPacket getPacketByDrupalId(String nodeId) {
-		return mRemoteDrupalPacketCache.get(nodeId);
+		return mRemotePacketCache.get(nodeId);
 	}
 	
 	public DataOutPacket getPacketByRecordId(String recordId) {
 		
-		for (DataOutPacket packet : mRemoteDrupalPacketCache.values()) {
+		for (DataOutPacket packet : mRemotePacketCache.values()) {
 			if (packet.mId.equalsIgnoreCase(recordId)) {
 				return packet;
 			}
@@ -377,9 +376,10 @@ public class DataOutHandler  implements JREngageDelegate {
                 // determine which node was deleted, then delete that from the cache
                 for (String nid : mNodeDeleteQueue) {
                 	if (!mRemoteDrupalNodeIdList.contains(nid)) {
-            			mRemoteDrupalPacketCache.remove(nid);
-                        if (mInstance.mDrupalUpdateListener != null) {
-                        	mInstance.mDrupalUpdateListener.drupalDeleteComplete(nid);
+                		DataOutPacket packet = mRemotePacketCache.get(nid);
+            			mRemotePacketCache.remove(nid);
+                        if (mInstance.mDatabaseUpdateListener != null) {
+                        	mInstance.mDatabaseUpdateListener.remoteDatabaseDeleteComplete(packet);
                         }                
                 	}
                 }
@@ -412,7 +412,7 @@ public class DataOutHandler  implements JREngageDelegate {
             }
         };        
         
-        us.NodeGet(responseHandler);
+        us.NodeGet(responseHandler); // Gets all nodes from drupal
    }	
 	
 	
@@ -438,13 +438,13 @@ public class DataOutHandler  implements JREngageDelegate {
 					try {
 						dataOutPacket = new DataOutPacket(response);
 						
-						mRemoteDrupalPacketCache.put(dataOutPacket.mDrupalNid, dataOutPacket);
+						mRemotePacketCache.put(dataOutPacket.mDrupalNid, dataOutPacket);
 	                	
 //	                	Log.e(TAG,mRemoteDrupalPacketList.toString());
 	                	
-	                	if (mDrupalUpdateListener != null) {
+	                	if (mDatabaseUpdateListener != null) {
 	                		//mDrupalUpdateListener.drupalCreateUpdateComplete("Updated cache from Drupal: (" + dataOutPacket.mDrupalNid + ") : " + dataOutPacket.toString() );
-	                		mDrupalUpdateListener.drupalCreateUpdateComplete(dataOutPacket.mDrupalNid);
+	                		mDatabaseUpdateListener.remoteDatabaseCreateUpdateComplete(dataOutPacket);
 	                	}						
 						
 					} catch (DataOutHandlerException e) {
@@ -461,16 +461,16 @@ public class DataOutHandler  implements JREngageDelegate {
             @Override
             public void onFailure(Throwable e, JSONObject response) {
                 Log.e(TAG, e.toString());
-            	if (mDrupalUpdateListener != null) {
-            		mDrupalUpdateListener.drupalFailure(e.toString());
+            	if (mDatabaseUpdateListener != null) {
+            		mDatabaseUpdateListener.remoteDatabaseFailure(e.toString());
             	}	                
             }
             
             @Override
 			public void onFailure(Throwable arg0, JSONArray arg1) {
                 Log.e(TAG, arg0.toString());
-            	if (mDrupalUpdateListener != null) {
-            		mDrupalUpdateListener.drupalFailure(arg0.toString());
+            	if (mDatabaseUpdateListener != null) {
+            		mDatabaseUpdateListener.remoteDatabaseFailure(arg0.toString());
             	}	                
                 
 			}
@@ -1031,16 +1031,16 @@ public class DataOutHandler  implements JREngageDelegate {
             @Override
             public void onFailure(Throwable e, JSONObject response) {
                 Log.e(TAG, e.toString());
-            	if (mDrupalUpdateListener != null) {
-            		mDrupalUpdateListener.drupalFailure(e.toString());
+            	if (mDatabaseUpdateListener != null) {
+            		mDatabaseUpdateListener.remoteDatabaseFailure(e.toString());
             	}	                 
             }
             
             @Override
 			public void onFailure(Throwable arg0, JSONArray arg1) {
                 Log.e(TAG, arg0.toString());
-            	if (mDrupalUpdateListener != null) {
-            		mDrupalUpdateListener.drupalFailure(arg0.toString());
+            	if (mDatabaseUpdateListener != null) {
+            		mDatabaseUpdateListener.remoteDatabaseFailure(arg0.toString());
             	}	                 
 			}
 
@@ -1069,9 +1069,15 @@ public class DataOutHandler  implements JREngageDelegate {
      *   Polls remote Drupal database and fills mRemoteDrupalNodeIdList
      *   with a list of current node id's
      * Part B - 
-     *   Calls getDrupalNodesFromRemoteDrupalNodeIdList to fill mRemoteDrupalPacketcACHE
+     *   Calls getDrupalNodesFromRemoteDrupalNodeIdList to fill mRemotePacketcACHE
+     *   
+     *   On termination, 
+     *   	mRemotePacketCache is updated
+     *   	mDatabaseCacheUpdateListener.getNodesComplete() is called (May be called progressively)
+     *   
+     *   
      */
-    public void getRemoteDrupalNodes() {
+    public void getRemoteDatabaseNodes() {
     	 UserServices us;
          int nodeNum = 0;
          
@@ -1137,7 +1143,7 @@ public class DataOutHandler  implements JREngageDelegate {
     void getDrupalNodesFromRemoteDrupalNodeIdList() {
         UserServices us;
         int nodeNum = 0;
-        mRemoteDrupalPacketCache = new HashMap<String, DataOutPacket>();
+        mRemotePacketCache = new HashMap<String, DataOutPacket>();
         
         us = new UserServices(mServicesClient);    	
 
@@ -1154,7 +1160,7 @@ public class DataOutHandler  implements JREngageDelegate {
                     	DataOutPacket dataOutPacket;
 						try {
 							dataOutPacket = new DataOutPacket(response);
-	                    	mRemoteDrupalPacketCache.put(dataOutPacket.mDrupalNid, dataOutPacket);
+	                    	mRemotePacketCache.put(dataOutPacket.mDrupalNid, dataOutPacket);
 	                    	Log.e(TAG, "Fetched (" + dataOutPacket.mDrupalNid + ") : "+ dataOutPacket.toString());
 	                    	
 	                    	// Check off node id's received, when we've received the last one notify
@@ -1164,15 +1170,15 @@ public class DataOutHandler  implements JREngageDelegate {
 //	                    	Log.e(TAG, mRemoteDrupalNodeIdListCheckoff.toString());
 //	                    	if (mRemoteDrupalNodeIdListCheckoff.size() == 0) {
 	                        if (true) {			// For now update the display every time we get here
-	                        	if (mDrupalUpdateListener != null) {
-	                        		mDrupalUpdateListener.drupalReadComplete();
+	                        	if (mDatabaseUpdateListener != null) {
+	                        		mDatabaseUpdateListener.remoteDatabasedeGetNodesComplete();
 	                        	}                    		
 	                    	}
 						} catch (DataOutHandlerException e) {
 							Log.e(TAG, e.toString());
 							//e.printStackTrace();
-	                      	if (mDrupalUpdateListener != null) {
-                        		mDrupalUpdateListener.drupalReadComplete();
+	                      	if (mDatabaseUpdateListener != null) {
+                        		mDatabaseUpdateListener.remoteDatabasedeGetNodesComplete();
                         	}							
 						}
                 }
