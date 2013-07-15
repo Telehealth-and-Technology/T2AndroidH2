@@ -770,7 +770,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	/**
 	 * Cancells authentication
 	 */
-	public void logOut(Context context) {
+	public void logOut() {
 		Log.d(TAG, "DataOuthandler Logging out");		
 		mAuthenticated = false;
 		drupalSessionCookie = null;
@@ -781,7 +781,8 @@ public class DataOutHandler  implements JREngageDelegate {
 		}
         
         if (mEngage != null) {
-        	mEngage.removeDelegate((JREngageDelegate) context);
+//        	mEngage.removeDelegate((JREngageDelegate) context);
+        	mEngage.removeDelegate(this);
         }
 	}
 	
