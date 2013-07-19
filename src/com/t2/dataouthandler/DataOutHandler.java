@@ -82,6 +82,16 @@ import com.t2.dataouthandler.T2RestPacket;
 import com.t2.drupalsdk.ServicesClient;
 import com.t2.drupalsdk.UserServices;
 
+/**
+ * Handles interface to external databases.
+ * Also initializes Authentication services (JanRain)
+ * 
+ * 
+ * 
+ * 
+ * @author scott.coleman
+ *
+ */
 public class DataOutHandler  implements JREngageDelegate {
 	// Comment
 	private final String TAG = getClass().getName();	
@@ -691,8 +701,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		        mEngage.removeDelegate(this);
 		        mEngage.addDelegate(this);
 		        
-		        
-		        //		        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
 		        JREngage.blockOnInitialization();
 
 				
@@ -700,9 +708,6 @@ public class DataOutHandler  implements JREngageDelegate {
 				sClientManager = new AmazonClientManager(mSharedPreferences, mRemoteDatabase);	
 				// TBD - we should probably check the table status
 				//new CheckTableStatusTask().execute("");			
-				
-				int i = 0;
-				i++;
 			}			
 			
 		}
@@ -719,6 +724,11 @@ public class DataOutHandler  implements JREngageDelegate {
 				}
 				
 		        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
+		        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
+		        // As odd as it seems, this ensures that only one delegate gets added per instance.
+		        mEngage.removeDelegate(this);
+		        mEngage.addDelegate(this);
+		        
 		        JREngage.blockOnInitialization();
 			}				
 			
@@ -736,6 +746,11 @@ public class DataOutHandler  implements JREngageDelegate {
 				}
 				
 		        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
+		        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
+		        // As odd as it seems, this ensures that only one delegate gets added per instance.
+		        mEngage.removeDelegate(this);
+		        mEngage.addDelegate(this);
+		        
 		        JREngage.blockOnInitialization();
 
 		        mServicesClient = new ServicesClient(mRemoteDatabase);
@@ -1304,7 +1319,7 @@ public class DataOutHandler  implements JREngageDelegate {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				Log.d(TAG, "Http dispatch thread tick");
+				//Log.d(TAG, "Http dispatch thread tick");
 
 				// If the network is available post entries from the PendingQueue
 				if (isNetworkAvailable()) {
