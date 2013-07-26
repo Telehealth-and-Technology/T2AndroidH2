@@ -2205,13 +2205,13 @@ public class DataOutHandler  implements JREngageDelegate {
 		
 		mSqlRecordIdList = (ArrayList<String>) mDbCache.getSqlIdList();	             
 
-		if (httpLockout == true) {
-			Log.e(TAG, "-------------------------------DISASTER AVERTED--------------------------------");
-			return;
-		}
-		else {
-			httpLockout = true;
-		}
+//		if (httpLockout == true) {
+//			Log.e(TAG, "-------------------------------DISASTER AVERTED--------------------------------");
+//			return;
+//		}
+//		else {
+//			httpLockout = true;
+//		}
         // -------------------------------------
         // Get Drupal Node Summary:
         // -------------------------------------
@@ -2238,8 +2238,8 @@ public class DataOutHandler  implements JREngageDelegate {
 	            	   	}	
 	             }
 
-	             Log.e(TAG, "mDrupalIdList = " + mDrupalRecordIdList.toString());
-	             Log.e(TAG, "mSqlIdList = " + mSqlRecordIdList.toString());
+	             Log.e(TAG, "mDrupalRecordIdList = " + mDrupalRecordIdList.toString());
+	             Log.e(TAG, "mSqlRecordIdList = " + mSqlRecordIdList.toString());
 	             Log.e(TAG, "mNodeDeleteQueue = " + mNodeDeleteQueue.toString());
 	             
 	             
@@ -2292,16 +2292,28 @@ public class DataOutHandler  implements JREngageDelegate {
 			            		// Case 2
 			            		Log.e(TAG, "Case 2 - Sending the packet to DB");
 		        	        	SqlPacket sqlPacket = mDbCache.db.getPacketByRecordId(recordId);
-		        	        	DataOutPacket dataOutPacket;
-								try {
-									dataOutPacket = new DataOutPacket(sqlPacket);
-			        	        	String packetString = createDrupalPacketString(dataOutPacket);
-			        	        	drupalNodePut1(packetString, "C", "");
-			        	        	
-								} catch (DataOutHandlerException e) {
-									e.printStackTrace();
-								}			            	}
-			            	else {
+
+		        	        	// Don't send the packet if already sending!
+		        	        	if (!(sqlPacket.getCacheStatus() == SqlPacket.CACHE_SENDING)) {
+			        	        	sqlPacket.setCacheStatus(SqlPacket.CACHE_SENDING);
+			        	        	DataOutPacket dataOutPacket;
+									try {
+										
+							 			synchronized(mDbCache) {
+											mDbCache.db.updateSqlPacket(sqlPacket);
+										}										
+										
+										dataOutPacket = new DataOutPacket(sqlPacket);
+				        	        	sendPacketToRemoteDb(dataOutPacket, "C", "");
+				        	        	
+									} catch (DataOutHandlerException e) {
+										e.printStackTrace();
+									}			            	
+		        	        		
+		        	        	}		        	        	
+		        	        	
+							}
+			            else {
 			            		// Case 1
 			            		Log.e(TAG, "Case 2 - Removing the packet from the cache");
 			            		
@@ -2340,7 +2352,7 @@ public class DataOutHandler  implements JREngageDelegate {
 			        	          // Get the drupal id for this record id
 			        	          String drupalId = mDrupalIdMap.get(drupalRecordId);
 			        	          if (drupalId != null) {
-			        	        	  drupalNodePut1("", "D", drupalId);
+			        	        	  sendPacketToRemoteDb(null, "D", drupalId);
 			        	          }
 		        	          }
 		        	          else {
@@ -2366,14 +2378,24 @@ public class DataOutHandler  implements JREngageDelegate {
 	
 	
     /**
-     * Sends a specific json string to Drupal database for processing
+     * Sends a dataOutPAcket Drupal database for processing
      * 
      * @param jsonString
      */
-    void drupalNodePut1(String jsonString, String queuedAction, String drupalNodeId) {
+    void sendPacketToRemoteDb(final DataOutPacket dataOutPacket, final String queuedAction, final String drupalNodeId) {
         UserServices us;
 
-        Log.d(TAG, "drupalNodePut1()");
+        String jsonString = "";      
+        
+        if (dataOutPacket != null) {
+
+            Log.d(TAG, "sendPacketToRemoteDb(" + dataOutPacket.mRecordId + ")");
+            jsonString = createDrupalPacketString(dataOutPacket);        
+        }
+        else {
+            Log.d(TAG, "sendPacketToRemoteDb - deleting drupal node id  + " + drupalNodeId + ")");
+        }
+        
 		// Check to see if we've stored a Drupal session cookie. If so then attach then to 
         // the http client
         if (drupalSessionCookie != null) {
@@ -2397,7 +2419,7 @@ public class DataOutHandler  implements JREngageDelegate {
             public void onSuccess(JSONObject response) {
                 try {
                     String nid = response.getString("nid");
-                    Log.d(TAG, "Successfully1 submitted article # " + nid);
+                    Log.d(TAG, "Successfully submitted article # " + nid);
                     
                 } catch (JSONException e) {
                     Log.e(TAG, e.toString());
@@ -2431,7 +2453,14 @@ public class DataOutHandler  implements JREngageDelegate {
 
 			@Override
             public void onFinish() {
-                Log.d(TAG, "onFinish(drupalNodePut)");
+				
+				if (queuedAction.equalsIgnoreCase("D")) {
+	                Log.d(TAG, "onFinish(" + drupalNodeId + ")");
+				}
+				else {
+					if ( dataOutPacket != null)		
+						Log.d(TAG, "onFinish(" + dataOutPacket.mRecordId + ")");
+				}
             	
             }
         };        

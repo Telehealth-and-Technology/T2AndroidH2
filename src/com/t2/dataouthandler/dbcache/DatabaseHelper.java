@@ -53,7 +53,7 @@ public class DatabaseHelper
 		this.db = openHelper.getWritableDatabase();
 		Cursor cursor = null;
 
-		String query = "select PacketID, PacketSql, DrupalId, RecordId from PERSISTENTCACHE";
+		String query = "select PacketID, PacketSql, DrupalId, RecordId, CacheStatus from PERSISTENTCACHE";
 		cursor = this.db.rawQuery(query, null);
 
 		if (cursor.moveToFirst()) {
@@ -65,6 +65,7 @@ public class DatabaseHelper
 				packet.setPacket(cursor.getString(1));
 				packet.setDrupalId(cursor.getString(2));
 				packet.setRecordId(cursor.getString(3));
+				packet.setCacheStatus(cursor.getInt(4));
 				packets.add(packet);
 			}
 			while (cursor.moveToNext());
@@ -87,7 +88,7 @@ public class DatabaseHelper
 		OpenHelper openHelper = new OpenHelper(this.context);
 		this.db = openHelper.getWritableDatabase();
 		Cursor cursor = null;
-		String query = "select PacketID, PacketSql, DrupalId, RecordId from PERSISTENTCACHE";
+		String query = "select PacketID, PacketSql, DrupalId, RecordId, CacheStatus from PERSISTENTCACHE";
 		cursor = this.db.rawQuery(query, null);
 		try {
 			if (cursor.moveToFirst()) {
@@ -98,6 +99,7 @@ public class DatabaseHelper
 					sqlPacket.setPacket(cursor.getString(1));
 					sqlPacket.setDrupalId(cursor.getString(2));
 					sqlPacket.setRecordId(cursor.getString(3));
+					sqlPacket.setCacheStatus(cursor.getInt(4));
 					try {
 						DataOutPacket packetDOP = new DataOutPacket(sqlPacket);
 						packets.add(packetDOP);
@@ -137,6 +139,7 @@ public class DatabaseHelper
 			insertValues.put("PacketSql", packet.getPacketJson());
 			insertValues.put("RecordId", packet.getRecordId());
 			insertValues.put("DrupalId", packet.getDrupalId());
+			insertValues.put("CacheStatus", packet.getCacheStatus());
 			db.insert("PERSISTENTCACHE", null, insertValues);
 
 			return getPacketByRecordId(packet.getRecordId());
@@ -165,6 +168,7 @@ public class DatabaseHelper
 			updateValues.put("PacketSql", packet.getPacketJson());
 			updateValues.put("RecordId", packet.getRecordId());
 			updateValues.put("DrupalId", packet.getDrupalId());
+			updateValues.put("CacheStatus", packet.getCacheStatus());
 			retVal = db.update("PERSISTENTCACHE", updateValues, "PacketID = " + packet.getSqlPacketId(), null);
 
 			return retVal;
@@ -227,6 +231,8 @@ public class DatabaseHelper
 			insertValues.put("PacketSql", packet);
 			insertValues.put("RecordId", recordId);
 			insertValues.put("DrupalId", drupalId);
+			insertValues.put("CacheStatus", SqlPacket.CACHE_IDLE);
+			
 			db.insert("PERSISTENTCACHE", null, insertValues);
 
 			return getPacketByRecordId(recordId);
@@ -286,7 +292,7 @@ public class DatabaseHelper
 		this.db = openHelper.getWritableDatabase();
 		Cursor cursor = null;
 
-		String query = "select PacketID, RecordId, DrupalID, PacketSql from PERSISTENTCACHE where RecordId = '" + recordId + "'" ;
+		String query = "select PacketID, RecordId, DrupalID, PacketSql, CacheStatus from PERSISTENTCACHE where RecordId = '" + recordId + "'" ;
 		cursor = this.db.rawQuery(query, null);
 
 		if (cursor.moveToFirst()) 
@@ -298,6 +304,7 @@ public class DatabaseHelper
 				outPacket.setRecordId(cursor.getString(1));
 				outPacket.setDrupalId(cursor.getString(2));
 				outPacket.setPacket(cursor.getString(3));
+				outPacket.setCacheStatus(cursor.getInt(4));
 				
 			}
 			while (cursor.moveToNext());

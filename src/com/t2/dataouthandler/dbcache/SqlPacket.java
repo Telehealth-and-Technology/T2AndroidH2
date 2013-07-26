@@ -8,10 +8,18 @@ import com.t2.dataouthandler.DataOutPacket;
 
 public class SqlPacket {
 
+
+	public static final int CACHE_ERROR = -1;	
+	public static final int CACHE_IDLE = 0;	
+	public static final int CACHE_SENDING = 1;	
+	public static final int CACHE_DELETING = 2;	
+	
 	private String sqlPacketId = "";
 	private String packetJson = "";
 	private String recordId = "";
 	private String drupalId = "";
+
+	private int cacheStatus = CACHE_IDLE;
 
 
 	public SqlPacket() {
@@ -123,10 +131,17 @@ public class SqlPacket {
 		this.recordId = recordId;
 	}
 
-
 	
+	public int getCacheStatus() {
+		return cacheStatus;
+	}
+
+	public void setCacheStatus(int cache_Status) {
+		this.cacheStatus = cache_Status;
+	}
+
 	public String toString() {
-		return "packetId: " + sqlPacketId + ", recordId: " + recordId + ", drupalId: " + drupalId + ", packet: " + packetJson;
+		return "cacheStatus: " + cacheStatus + " packetId: " + sqlPacketId + ", recordId: " + recordId + ", drupalId: " + drupalId + ", packet: " + packetJson;
 	}
 
 }

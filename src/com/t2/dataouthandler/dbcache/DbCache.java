@@ -23,6 +23,9 @@ public class DbCache {
 	
 	private final String TAG = getClass().getName();	
 
+	
+
+
 	private List<String> mDrupalNodeIdList;	   
 	private List<String> mCacheNodeIdList;	   
 	private UserServices us;
