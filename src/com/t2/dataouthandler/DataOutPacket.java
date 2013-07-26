@@ -52,23 +52,84 @@ import android.os.Build;
 import android.util.Log;
 
 import com.t2.dataouthandler.DataOutHandlerTags;
+import com.t2.dataouthandler.dbcache.SqlPacket;
 
 
 public class DataOutPacket implements Serializable {
 
 	private final String TAG = getClass().getName();	
-
-	public HashMap<String, Object> mItemsMap = new HashMap<String, Object>();
-	public String mLoggingString;
-	public String mId;
     private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-	public long mCurrentTime;
+
+    // Official Record Fields
+	// Primary record properties
+	public String mRecordId;
+	public long mTimeStamp;
+
+	
+	// Additional record properties
+	public HashMap<String, Object> mItemsMap = new HashMap<String, Object>();
+
+	// Private record properties
+	public String mSqlPacketId;	
 	public String mDrupalNid;
+	public String mLoggingString;
 	public String mQueuedAction = "C";		// Assume all actions are Create unless specifically set otherwise
 	
-	
+
 	/**
-	 * Reconstruct a DataOutPacket from a JSON string (supplied by Drupal)
+	 * Construct a DataOutPacket from a JSON string (supplied by Drupal)
+	 * @param drupalObject
+	 * @throws DataOutHandlerException 
+	 */
+	public DataOutPacket(SqlPacket sqlPacket) throws DataOutHandlerException {
+		this.mRecordId = sqlPacket.getRecordId();
+		this.mDrupalNid = sqlPacket.getDrupalId();
+		this.mSqlPacketId = sqlPacket.getSqlPacketId();
+		
+		try {
+			JSONObject mainObject = new JSONObject(sqlPacket.getPacketJson());
+			
+	        Iterator<String> keys = mainObject.keys();
+	        while (keys.hasNext()) {
+	            String key = keys.next();
+	            try {
+	                Object val = mainObject.get(key);
+	                if (val instanceof JSONArray) {
+	                	JSONArray vals = (JSONArray) val;
+	            		Vector<String> taskVector = new Vector<String>();
+	                	
+	                	for (int i = 0; i < vals.length(); i++) {
+	                		String s = vals.getString(i);
+		            		taskVector.add(s);
+	                	}
+	                	add(key, taskVector);
+
+	                
+	                } else if (val instanceof JSONObject) {
+	                	throw new DataOutHandlerException("JSON Object not valid at this point");	                	
+	                } else if (val instanceof String) {
+	                	add(key, (String) val);
+	                	
+	                	// Set up any specific members
+	                	if (key.equalsIgnoreCase(DataOutHandlerTags.TIME_STAMP)) {
+	                		mTimeStamp = Long.parseLong((String) val);
+	                	}
+	                }
+	            } catch (JSONException e) {
+	                throw new RuntimeException("Unexpected", e);
+	            }
+	        }		
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}		
+	}	
+	
+	
+	
+
+	/**
+	 * Construct a DataOutPacket from a JSON string (supplied by Drupal)
 	 * @param drupalObject
 	 * @throws DataOutHandlerException 
 	 */
@@ -134,10 +195,10 @@ public class DataOutPacket implements Serializable {
 				            		// Make sure we have a valid record (Record_id must be greater than 13 characteers
 						            add(itemKey,itemValue);
 				            		if (itemKey.equalsIgnoreCase("record_id")) {
-				            			mId = itemValue;
+				            			mRecordId = itemValue;
 				            			
 				            			if (itemValue.length() >= 13)
-				            				mCurrentTime = Long.parseLong(itemValue.substring(0, 13));
+				            				mTimeStamp = Long.parseLong(itemValue.substring(0, 13));
 				            			else
 				            				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
 				            		}
@@ -155,13 +216,13 @@ public class DataOutPacket implements Serializable {
 	public DataOutPacket() {
     	UUID uuid = UUID.randomUUID();
     	Calendar calendar = GregorianCalendar.getInstance();
-    	mCurrentTime = calendar.getTimeInMillis();
+    	mTimeStamp = calendar.getTimeInMillis();
     	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         String currentTimeString = dateFormatter.format(calendar.getTime());
-    	mId = mCurrentTime + "-" + uuid.toString();
+    	mRecordId = mTimeStamp + "-" + uuid.toString();
 
-    	add(DataOutHandlerTags.RECORD_ID, mId);
-    	add(DataOutHandlerTags.TIME_STAMP, mCurrentTime);
+    	add(DataOutHandlerTags.RECORD_ID, mRecordId);
+    	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
     	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
     	add(DataOutHandlerTags.PLATFORM, "Android");		    	
     	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);	    	
@@ -281,14 +342,14 @@ public class DataOutPacket implements Serializable {
 	
 	public boolean equalsIgnoreTag(DataOutPacket packet, List ignoreList) {
 		if (!ignoreList.contains("time_stamp")) {
-			if (this.mCurrentTime != packet.mCurrentTime) {
-    			Log.e(TAG, "Key (" + "time_stamp" + ") - Unequal parameter: " + this.mCurrentTime + "!= " + packet.mCurrentTime);
+			if (this.mTimeStamp != packet.mTimeStamp) {
+    			Log.e(TAG, "Key (" + "time_stamp" + ") - Unequal parameter: " + this.mTimeStamp + "!= " + packet.mTimeStamp);
 				return false;
 			}
 		}		
 		if(!ignoreList.contains("record_id")) {
-			if (!this.mId.equalsIgnoreCase(packet.mId)) {
-    			Log.e(TAG, "Key (" + "record_id" + ") - Unequal parameter: " + this.mCurrentTime + "!= " + packet.mCurrentTime);
+			if (!this.mRecordId.equalsIgnoreCase(packet.mRecordId)) {
+    			Log.e(TAG, "Key (" + "record_id" + ") - Unequal parameter: " + this.mTimeStamp + "!= " + packet.mTimeStamp);
 				return false;
 			}
 		}
@@ -307,13 +368,13 @@ public class DataOutPacket implements Serializable {
 	}	
 	
 	public boolean equals(DataOutPacket packet) {
-		if (this.mCurrentTime != packet.mCurrentTime) {
-			Log.e(TAG, "Key (" + "packet.mCurrentTime" + ") - Unequal parameter: " + this.mCurrentTime + "!= " + packet.mCurrentTime);
+		if (this.mTimeStamp != packet.mTimeStamp) {
+			Log.e(TAG, "Key (" + "packet.mCurrentTime" + ") - Unequal parameter: " + this.mTimeStamp + "!= " + packet.mTimeStamp);
 			return false;
 		}
 		
-		if (!this.mId.equalsIgnoreCase(packet.mId)) {
-			Log.e(TAG, "Key (" + "packet.mId" + ") - Unequal parameter: " + this.mCurrentTime + "!= " + packet.mCurrentTime);
+		if (!this.mRecordId.equalsIgnoreCase(packet.mRecordId)) {
+			Log.e(TAG, "Key (" + "packet.mId" + ") - Unequal parameter: " + this.mTimeStamp + "!= " + packet.mTimeStamp);
 			return false;
 		}
 
@@ -332,7 +393,7 @@ public class DataOutPacket implements Serializable {
 	public String toString() {
 		String result = "";
 		
-		result += mId + ", ";
+		result += mRecordId + ", ";
 		   Iterator it = mItemsMap.entrySet().iterator();
 		    while (it.hasNext()) {
 		        Map.Entry pairs = (Map.Entry)it.next();
