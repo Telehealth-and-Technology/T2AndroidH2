@@ -311,6 +311,9 @@ public class DataOutHandler  implements JREngageDelegate {
 	
 	private DataOutHandler mInstance;
 	
+	
+	private Boolean httpLockout = false;
+	
 	public void setDatabaseUpdateListener(DatabaseCacheUpdateListener mDatabaseUpdateListener) {
 		this.mDatabaseUpdateListener = mDatabaseUpdateListener;
 	}
@@ -1401,7 +1404,7 @@ public class DataOutHandler  implements JREngageDelegate {
 				}
 				
 
-				for (int i = 1; i < 10; i++) {
+				for (int i = 1; i < 4; i++) {
 					try {
 						Thread.sleep(1000);
 						if(cancelled) {
@@ -2202,7 +2205,13 @@ public class DataOutHandler  implements JREngageDelegate {
 		
 		mSqlRecordIdList = (ArrayList<String>) mDbCache.getSqlIdList();	             
 
-		
+		if (httpLockout == true) {
+			Log.e(TAG, "-------------------------------DISASTER AVERTED--------------------------------");
+			return;
+		}
+		else {
+			httpLockout = true;
+		}
         // -------------------------------------
         // Get Drupal Node Summary:
         // -------------------------------------
@@ -2242,9 +2251,6 @@ public class DataOutHandler  implements JREngageDelegate {
 	 			synchronized(mDbCache) {
 					mDbCache.updateDrupalIds(mDrupalIdMap);
 				}	             
-	             
-	             
-	             
 			}
 	
 			@Override
@@ -2270,41 +2276,52 @@ public class DataOutHandler  implements JREngageDelegate {
 				@Override
 	         public void onFinish() {
 	             Log.d(TAG, "onFinish(Drupal Node Summary)");
-	             
-	        	 // 1 - For each packet in Cache not in Drupal -> Add packet to Drupal  	             
-	        	 // 2 - For each packet in Drupal not in Cache -> Add packet to cache
+	             			
+	             httpLockout = false;
 	             
 	             if (true) {
 		             for (String recordId : mSqlRecordIdList) {
-		            	 if (!mDrupalRecordIdList.contains(recordId)) {
-		        	          Log.e(TAG, "recordId: " + recordId + " - Packet exists in Cache but not in DB, sending it");
+		            	if (!mDrupalRecordIdList.contains(recordId)) {
+		        	        Log.e(TAG, "recordId: " + recordId + " - Packet exists in Cache but not in DB, sending it");
 	
-			            	 // Exists in cache but on on Drupal, send it
-			            		 
+			            	// Exists in cache but on on Drupal
+		        	        // Two possible cases here
+		        	        // 1 Packet deleted by other from DB      -> Remove the packet from the cache
+		        	        // 2 Packet newly inserted by self        -> Add (send) the packet to the DB
+			            	if (true) {
+			            		// Case 2
+			            		Log.e(TAG, "Case 2 - Sending the packet to DB");
+		        	        	SqlPacket sqlPacket = mDbCache.db.getPacketByRecordId(recordId);
+		        	        	DataOutPacket dataOutPacket;
+								try {
+									dataOutPacket = new DataOutPacket(sqlPacket);
+			        	        	String packetString = createDrupalPacketString(dataOutPacket);
+			        	        	drupalNodePut1(packetString, "C", "");
+			        	        	
+								} catch (DataOutHandlerException e) {
+									e.printStackTrace();
+								}			            	}
+			            	else {
+			            		// Case 1
+			            		Log.e(TAG, "Case 2 - Removing the packet from the cache");
+			            		
+			            	}
 			            				 
-	        	        	SqlPacket sqlPacket = mDbCache.db.getPacketByRecordId(recordId);
-	        	        	DataOutPacket dataOutPacket;
-							try {
-								dataOutPacket = new DataOutPacket(sqlPacket);
-		        	        	String packetString = createDrupalPacketString(dataOutPacket);
-		        	        	drupalNodePut1(packetString, "C", "");
-		        	        	
-							} catch (DataOutHandlerException e) {
-								e.printStackTrace();
-							}
+
 		            	 
 		            	 } // if (!mDrupalIdList.contains(id))
 		            	 
 		            	 
-		        	 }	  // for (String id : mSqlIdList) 	  
+		        	 }	  // end for (String id : mSqlIdList) 	  
 		             for (String drupalRecordId : mDrupalRecordIdList) {
 		            	 
 		            	 if (!mSqlRecordIdList.contains(drupalRecordId)) {
 		        	          Log.e(TAG, "recordId: " + drupalRecordId + " - Packet exists in DB but not in Cache");
 
+		        	          // Packet exists in DB but not in Cache
 		        	          // Two possible cases here:
-		        	          // 1 Packet newly by other into DB  -> Add packet to Cache
-		        	          // 2 Packeted deleted by self       -> Delete packet from DB
+		        	          // 1 Packet newly inserted by other into DB  -> Add packet to Cache
+		        	          // 2 Packeted deleted by self                -> Delete packet from DB
 
 		        	          Log.e(TAG, "mNodeDeleteQueue = " + mNodeDeleteQueue.toString());
 		        	          
@@ -2332,16 +2349,8 @@ public class DataOutHandler  implements JREngageDelegate {
 			        	          String drupalId = mDrupalIdMap.get(drupalRecordId);
 			        	          addPacketToCache(drupalId);	// Grabs the packet from Drupal and adds it to the Cache        	          
 		        	          }
-		        	          
-		        	          
-		        	          
-	        	          
-		        	          
 		            	 }
-		            
 		             }
-		             
-		             
 	             }
 	         } // void onFinish()
 	     };        
