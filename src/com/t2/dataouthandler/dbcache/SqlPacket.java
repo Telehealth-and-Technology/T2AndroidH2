@@ -13,6 +13,7 @@ public class SqlPacket {
 	public static final int CACHE_IDLE = 0;	
 	public static final int CACHE_SENDING = 1;	
 	public static final int CACHE_DELETING = 2;	
+	public static final int CACHE_SENT = 3;	
 	
 	private String sqlPacketId = "";
 	private String packetJson = "";

@@ -100,12 +100,16 @@ public class DatabaseHelper
 					sqlPacket.setDrupalId(cursor.getString(2));
 					sqlPacket.setRecordId(cursor.getString(3));
 					sqlPacket.setCacheStatus(cursor.getInt(4));
-					try {
-						DataOutPacket packetDOP = new DataOutPacket(sqlPacket);
-						packets.add(packetDOP);
-					} catch (DataOutHandlerException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+
+//					if (sqlPacket.getCacheStatus() != SqlPacket.CACHE_DELETING) {
+						if (true) {
+						try {
+							DataOutPacket packetDOP = new DataOutPacket(sqlPacket);
+							packets.add(packetDOP);
+						} catch (DataOutHandlerException e) {
+							e.printStackTrace();
+						}
+						
 					}
 				}
 				while (cursor.moveToNext());
