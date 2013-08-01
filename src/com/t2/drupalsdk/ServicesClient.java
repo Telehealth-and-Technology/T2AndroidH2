@@ -64,6 +64,8 @@ public class ServicesClient {
         }
         se.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
         Log.d(TAG, "url = " + getAbsoluteUrl(url));
+        Log.d(TAG, "mAsyncHttpClient = " + mAsyncHttpClient);
+        
         
 //        // TODO: change to debug - it's at error now simply for readability
 //        HttpContext context = mAsyncHttpClient.getHttpContext();

@@ -47,6 +47,8 @@ import org.json.JSONObject;
 import org.t2health.lib1.LogWriter;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
@@ -76,6 +78,7 @@ import com.t2.aws.DynamoDBManager;
 import com.t2.dataouthandler.DataOutHandler;
 import com.t2.dataouthandler.DataOutHandlerException;
 import com.t2.dataouthandler.DataOutHandlerTags;
+import com.t2.dataouthandler.GUIHelper.LoginResult;
 import com.t2.dataouthandler.T2AuthDelegate;
 import com.t2.dataouthandler.T2RestClient;
 import com.t2.dataouthandler.T2RestPacket;
@@ -101,7 +104,8 @@ public class DataOutHandler  implements JREngageDelegate {
 	// private static final String DEFAULT_REST_DB_URL = "http://gap.t2health.org/and/json.php";	 
 	private static final String DEFAULT_REST_DB_URL = "http://ec2-50-112-197-66.us-west-2.compute.amazonaws.com/mongo/json.php";
 	private static final String DEFAULT_AWS_DB_URL = "h2tvm.elasticbeanstalk.com";
-	private static final String DEFAULT_DRUPAL_DB_URL = "https://t2health.us/h2/android/";
+//	private static final String DEFAULT_DRUPAL_DB_URL = "https://t2health.us/h2/android/";
+	private static final String DEFAULT_DRUPAL_DB_URL = "http://t2health.us/h2/android/";
 	
 	private static final boolean AWS_USE_SSL = false;
 	
@@ -120,6 +124,11 @@ public class DataOutHandler  implements JREngageDelegate {
 	public static final String DATA_TYPE_EXTERNAL_SENSOR = "ExternalSensor";
 	public static final String DATA_TYPE_USER_ENTERED_DATA = "UserEnteredData";
 	
+	//public static final int SYNC_TIMEOUT = 20000;
+	public static final int SYNC_TIMEOUT = 200000;
+	
+	private ProgressDialog mProgressDialog;
+	
 	
     Object addPacketToCacheSyncToken = new Object();	
     Object updateCacheSyncToken = new Object();	
@@ -133,6 +142,9 @@ public class DataOutHandler  implements JREngageDelegate {
 	
 	private String mResult;
 
+	private boolean mAllowTraditionalLogin = true;
+	private boolean mLoggedInAsTraditional = false;
+	
 	
 	/**
 	 * User identification to be associated with data stored
@@ -293,18 +305,6 @@ public class DataOutHandler  implements JREngageDelegate {
 	private List<String> mRemoteDrupalNodeIdList;
 
 	/**
-	 * Used to determine when we are done with fetching all of the Drupal
-	 * nodes form Drupal
-	 */
-	private List<String> mRemoteDrupalNodeIdListCheckoff;
-	
-	/**
-	 * List of dataout packets currently residing in remote database  
-	 */
-	public HashMap<String, DataOutPacket> mRemotePacketCache = new HashMap<String, DataOutPacket>();		
-	
-
-	/**
 	 * List of node ids which we have reuqested to be deleted from Drupal
 	 */
 	private List<String> mNodeDeleteQueue = new ArrayList<String>();	
@@ -315,7 +315,9 @@ public class DataOutHandler  implements JREngageDelegate {
 	 */
 	private List<String> mDrupalIdsSuccessfullyAdded = new ArrayList<String>();	
 	
-	
+	/**
+	 * Database cache
+	 */
 	public DbCache mDbCache;
 	
 	private DatabaseCacheUpdateListener mDatabaseUpdateListener;
@@ -354,108 +356,19 @@ public class DataOutHandler  implements JREngageDelegate {
 	
 	
 	public DataOutPacket getPacketByDrupalId(String nodeId) {
-		return mRemotePacketCache.get(nodeId);
+		return null;
 	}
 	
 	public DataOutPacket getPacketByRecordId(String recordId) {
 		
-		for (DataOutPacket packet : mRemotePacketCache.values()) {
-			if (packet.mRecordId.equalsIgnoreCase(recordId)) {
-				return packet;
-			}
-		}
-		
+//		for (DataOutPacket packet : mRemotePacketCache.values()) {
+//			if (packet.mRecordId.equalsIgnoreCase(recordId)) {
+//				return packet;
+//			}
+//		}
+//		
 		return null;
 	}	
-	
-	
-    /**
-     * This routine determines which node was removed from Drupal and updates the Cache
-     * Uses: mNodeDeleteQueue
-     */
-    public void removePacketFromRemoteDrupalPacketCache() {
-   	 UserServices us;
-        int nodeNum = 0;
-        
-        us = new UserServices(mServicesClient);
-
-        JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
-        	
-        	@Override
-			protected void handleSuccessJsonMessage(Object arg0) {
-        		// Accumulate a list of all of the current node id's in currentNodeIdList
-        		JSONArray array = (JSONArray) arg0;
-				mRemoteDrupalNodeIdList = new ArrayList<String>();	        		
-                for (int i = 0; i < array.length(); i++) {
-                	JSONObject jObject  = (JSONObject) array.opt(i);
-                	try {
-						String nodeId = (String) jObject.get("nid");
-						mRemoteDrupalNodeIdList.add(nodeId);
-					} catch (JSONException e) {
-						e.printStackTrace();
-					}
-                }
-                
-                Log.e(TAG, "mRemoteDrupalNodeIdList = " + mRemoteDrupalNodeIdList.toString());
-                
-                // Now mRemoteDrupalNodeIdList contains a list of all nodes contained in Drupal
-                // We've successfully deleted a node from Drupal.
-                // The problem is there is no indication of which node was deleted!
-                // So now we need to use the array mNodeDeleteQueue to
-                // determine which node was deleted, then delete that from the cache
-                for (String nid : mNodeDeleteQueue) {
-                	if (!mRemoteDrupalNodeIdList.contains(nid)) {
-
-                        Log.e(TAG, "Node to delete = " + nid);
-                		
-                		
-//                		DataOutPacket packet = mRemotePacketCache.get(nid);
-////                		mRemotePacketCache.remove(nid);
-                		mDbCache.removePacketFromCache(nid);
-//            			
-//            			
-//            			
-                		// Dummy just to fill the drupal node id
-                		DataOutPacket packet = new DataOutPacket();
-                		packet.mDrupalNid = nid;
-                        if (mInstance.mDatabaseUpdateListener != null) {
-                        	mInstance.mDatabaseUpdateListener.remoteDatabaseDeleteComplete(packet);
-                        }                
-                	}
-                }
-			}
-
-			@Override
-            public void onSuccess(JSONObject response) {
-            }
-
-			@Override
-			public void onSuccess(JSONArray arg0) {
-				super.onSuccess(arg0);
-			}
-
-            
-            @Override
-            public void onFailure(Throwable e, JSONObject response) {
-                Log.e(TAG, e.toString());
-            }
-            
-            @Override
-			public void onFailure(Throwable arg0, JSONArray arg1) {
-                Log.e(TAG, arg0.toString());
-			}
-
-			@Override
-            public void onFinish() {
-                Log.d(TAG, "onFinish(removePacketFromRemoteDrupalPacketCache)");
-            	
-            }
-        };        
-        
-        us.NodeGet(responseHandler); // Gets all nodes from drupal
-   }	
-	
-	
 	
 	/**
 	 * Constructor. Sets up context and user/session parameters
@@ -712,8 +625,15 @@ public class DataOutHandler  implements JREngageDelegate {
 
 		        mServicesClient = new ServicesClient(mRemoteDatabase);
 		        mCookieStore = new PersistentCookieStore(mContext);
+		        mCookieStore.clear(); // Make sure to start fresh
+		        mServicesClient.setCookieStore(mCookieStore);
 		        
-				mDbCache = new DbCache(mRemoteDatabase, mContext, mDatabaseUpdateListener);
+				try {
+					mDbCache = new DbCache(mRemoteDatabase, mContext, mDatabaseUpdateListener);
+				} catch (Exception e) {
+					Log.e(TAG, e.toString());
+					e.printStackTrace();
+				}
 			}			
 
 		}
@@ -738,8 +658,89 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * 
 	 * @param thisActivity Calling party activity
 	 */
-	public void showAuthenticationDialog(Activity thisActivity) {
-        mEngage.showAuthenticationDialog(thisActivity);
+	public void showAuthenticationDialog(final Activity thisActivity) {
+
+		if (mAllowTraditionalLogin) {
+			GUIHelper.showEnterUserAndPassword(mContext, "", new LoginResult() {
+
+				@Override
+				public void result(boolean res, String username, String password) {
+					Log.d(TAG, "username/password = " + username + " / " + password);
+					
+					if (res) {
+						traditionalLogin(username, password);
+					}
+					else {
+						mEngage.showAuthenticationDialog(thisActivity);
+					}
+				}
+	    	}); 			
+		}
+		else {
+			mEngage.showAuthenticationDialog(thisActivity);
+		}
+	}
+	
+	
+	public void traditionalLogin(String username, String password) {
+        UserServices us;		
+        us = new UserServices(mServicesClient);
+        Log.e(TAG, "mServicesClient = " + mServicesClient);
+        mProgressDialog = ProgressDialog.show(mContext, "", "Logging you in", true, false);
+
+        us.Login(username, password, new AsyncHttpResponseHandler() {
+            @Override
+            public void onSuccess(String response) {
+            	Log.e(TAG, "response = " + response);
+            	mLoggedInAsTraditional = true;
+                new AlertDialog.Builder(mContext).setMessage("Login was successful.").setPositiveButton("OK", null).setCancelable(true).create().show();
+            }
+
+            @Override
+            public void onFailure(Throwable e, String response) {
+                Log.e(TAG, e.getMessage());
+                new AlertDialog.Builder(mContext).setMessage("Login failed.").setPositiveButton("OK", null).setCancelable(true).create().show();
+            }
+
+            @Override
+            public void onFinish() {
+                mProgressDialog.hide();
+                mProgressDialog.dismiss();
+            }
+        });        
+	}
+	
+	void traditionalLogout() {
+	       UserServices us;		
+	        us = new UserServices(mServicesClient);
+	        Log.e(TAG, "mServicesClient = " + mServicesClient);
+
+	        mServicesClient.setCookieStore(mCookieStore);
+	        
+	        
+	        mProgressDialog = ProgressDialog.show(mContext, "", "Logging you out", true, false);
+
+	        us.Logout(new AsyncHttpResponseHandler() {
+	            @Override
+	            public void onSuccess(String response) {
+	            	Log.e(TAG, "response = " + response);
+	            	mLoggedInAsTraditional = false;
+	                new AlertDialog.Builder(mContext).setMessage("Logout was successful.").setPositiveButton("OK", null).setCancelable(true).create().show();
+	            }
+
+	            @Override
+	            public void onFailure(Throwable e, String response) {
+	                Log.e(TAG, e.getMessage());
+	                new AlertDialog.Builder(mContext).setMessage("Logout failed.").setPositiveButton("OK", null).setCancelable(true).create().show();
+	            }
+
+	            @Override
+	            public void onFinish() {
+	                mProgressDialog.hide();
+	                mProgressDialog.dismiss();
+	            }
+	        });		
+		
 	}
 	
 	/**
@@ -747,13 +748,18 @@ public class DataOutHandler  implements JREngageDelegate {
 	 */
 	public void logOut() {
 		Log.d(TAG, "DataOuthandler Logging out");		
+		if (mLoggedInAsTraditional) {
+			traditionalLogout();
+		}
+		
 		mAuthenticated = false;
 		drupalSessionCookie = null;
-        
-		if (mCookieStore != null) {
-			mCookieStore.clear();
-	        mServicesClient.setCookieStore(mCookieStore);   
-		}
+		
+// If we delete the cookie here, traditional logout will fail		
+//		if (mCookieStore != null) {
+//			mCookieStore.clear();
+//	        mServicesClient.setCookieStore(mCookieStore);   
+//		}
         
         if (mEngage != null) {
 //        	mEngage.removeDelegate((JREngageDelegate) context);
@@ -881,19 +887,20 @@ public class DataOutHandler  implements JREngageDelegate {
 			throw new DataOutHandlerException("Packet RecordID " + dataOutPacket.mRecordId + " does not exist in Cache");
 		}
 		else {
-			
-			// We now have the original sql PAcket corresponsing to this dataOutPacket
+			Log.d(TAG, "Updating record " + dataOutPacket.mRecordId);
+			// We now have the original sql Packet corresponding to this dataOutPacket
 			// We must transfer the changes from the dataOutPAcket to the sqlPAcket
 			// before we do the update.
 			SqlPacket sqlPacketNew = new SqlPacket(dataOutPacket);
 			sqlPacketNew.setSqlPacketId(sqlPacket.getSqlPacketId());
 			
-			mDbCache.db.updateSqlPacket(sqlPacketNew);	
+			int retVal = mDbCache.db.updateSqlPacket(sqlPacketNew);	
+			Log.d(TAG, "Updated: retVal = " + retVal + " record id = " + dataOutPacket.mRecordId);
 			SqlPacket updatedSqlPacketFromSql = mDbCache.db.getPacketByRecordId(dataOutPacket.mRecordId);
 			
 			// The timed task will take care of updating it in Drupal 
             if (mInstance.mDatabaseUpdateListener != null) {
-            	mInstance.mDatabaseUpdateListener.remoteDatabaseDeleteComplete(dataOutPacket);
+            	mInstance.mDatabaseUpdateListener.remoteDatabaseCreateUpdateComplete(dataOutPacket);
             } 			
 		}
 	}
@@ -904,7 +911,6 @@ public class DataOutHandler  implements JREngageDelegate {
 			throw new DataOutHandlerException("User is not authenticated");
 		}		
 
-		// Now update the database
 		if (mDatabaseEnabled) {
 				mNodeDeleteQueue.add(dataOutPacket.mRecordId);
 				mDbCache.deletePacketFromCacheWithDeletingStatus(dataOutPacket);
@@ -956,13 +962,22 @@ public class DataOutHandler  implements JREngageDelegate {
 
 				// If the network is available post entries from the PendingQueue
 				if (isNetworkAvailable()) {
-						ProcessCacheThread();		
+						if (mRequiresAuthentication) {
+							if (mAuthenticated == true) {
+								ProcessCacheThread();		
+							}
+						}
+						else {
+							ProcessCacheThread();		
+						}
+						
 				        Log.e(TAG, "Wait for UpdateCacheSyncToken");				
 				        synchronized (updateCacheSyncToken)
 				        {
 				            try {
-				            	updateCacheSyncToken.wait(20000);
+				            	updateCacheSyncToken.wait(SYNC_TIMEOUT);
 				            } catch (InterruptedException e) {
+				            	Log.e(TAG, e.toString());
 				                e.printStackTrace();
 				            }
 				        }
@@ -1415,6 +1430,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	     	
 	    	@Override
 			protected void handleSuccessJsonMessage(Object arg0) {
+	     		Log.e(TAG, "handleSuccessJsonMessage(Object arg0");
 	     		JSONArray array = (JSONArray) arg0;
 //	     		Log.e(TAG, "Drupal Node Summary: " + array.toString());
 
@@ -1422,13 +1438,19 @@ public class DataOutHandler  implements JREngageDelegate {
 	             for (int i = 0; i < array.length(); i++) {
 	            	 JSONObject jObject  = (JSONObject) array.opt(i);
 	            	 try {
+	            		 String userId = (String) jObject.get("uid");
 	            		 String nodeId = (String) jObject.get("nid");
 	            		 String recordId = (String) jObject.get("title");
-	            		 // Check to see if this is a valid record
-	            		 if (recordId.length()  >= 14 && recordId.charAt(13) == '-') {
-		            		 mDrupalRecordIdList.add(recordId);
-		            		 mRecordIdToDrupalIdMap.put(recordId, nodeId);
-		            		 mDrupalIdToRecordIdMap.put(nodeId, recordId);		            		 
+
+	            		 // TODO: temp only look at records from scott.coleman
+//	            		 if (userId.equalsIgnoreCase("113")) {
+		            		 // Check to see if this is a valid record
+		            		 if (recordId.length()  >= 14 && recordId.charAt(13) == '-') {
+			            		 mDrupalRecordIdList.add(recordId);
+			            		 mRecordIdToDrupalIdMap.put(recordId, nodeId);
+			            		 mDrupalIdToRecordIdMap.put(nodeId, recordId);		            		 
+//		            		 }
+	            			 
 	            		 }
 	            		 
 	            	 }	catch (JSONException e) {
@@ -1436,10 +1458,10 @@ public class DataOutHandler  implements JREngageDelegate {
 	            	   	}	
 	             }
 
-//	             Log.e(TAG, "mDrupalRecordIdList = " + mDrupalRecordIdList.toString());
+	             Log.e(TAG, "Updated mDrupalRecordIdList, mRecordIdToDrupalIdMap, and mDrupalIdToRecordIdMap");
+	             Log.e(TAG, "mDrupalRecordIdList = " + mDrupalRecordIdList.toString());
 //	             Log.e(TAG, "mSqlRecordIdList = " + mSqlRecordIdList.toString());
 //	             Log.e(TAG, "mNodeDeleteQueue = " + mNodeDeleteQueue.toString());
-	             Log.e(TAG, "Updated mDrupalRecordIdList, mRecordIdToDrupalIdMap, and mDrupalIdToRecordIdMap");
 	             
 	             
 	             // At this point 
@@ -1454,29 +1476,32 @@ public class DataOutHandler  implements JREngageDelegate {
 	
 			@Override
 	        public void onSuccess(JSONObject response) {
+	             Log.e(TAG, "onSuccess(JSONObject response) ");
 	        }
 	
 			@Override
 			public void onSuccess(JSONArray arg0) {
+	             Log.e(TAG, "onSuccess(JSONArray arg0) ");
 				super.onSuccess(arg0);
 			}
 	
 	         
 	         @Override
 	         public void onFailure(Throwable e, JSONObject response) {
-	             Log.e(TAG, e.toString());
+	             Log.e(TAG, "OnFailure(Throwable e, JSONObject response) " + e.toString());
 	         }
 	         
 	         @Override
 				public void onFailure(Throwable arg0, JSONArray arg1) {
-	             Log.e(TAG, arg0.toString());
+	             Log.e(TAG, "OnFailure(Throwable arg0, JSONArray arg1) " + arg0.toString());
 				}
 	
 				@Override
 	         public void onFinish() {
 	             Log.d(TAG, "onFinish(Drupal Node Summary)");
 	             			
-	             
+	             // Now do processing of cache items, comparing what's on the device
+	             // to what's in the remote database.
 	             if (true) {
 	            	 
 //	            	 for (String sqlRrecordId : mSqlRecordIdList) {
@@ -1508,19 +1533,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		            		}
 		            	 }
 			 		}
-	            	 
-	            	 for (String drupalId : mDrupalIdsSuccessfullyAdded) {
-	            		 String recordId = mDrupalIdToRecordIdMap.get(drupalId);
-	            		 if (recordId != null) {
-	            			 SqlPacket sqlPacket = mDbCache.db.getPacketByRecordId(recordId);
-	            			 if (sqlPacket != null) {
-	     	                    // Now set the status of the cache packet to idle
-//	     		 				sqlPacket.setCacheStatus(SqlPacket.CACHE_IDLE);
-	            				 
-	            			 }
-	            		 }
-	            	 }
-	            	 
 	            	 
 		             for (String recordId : mSqlRecordIdList) {
 		            	if (!mDrupalRecordIdList.contains(recordId)) {
@@ -1622,7 +1634,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		        	        	  // Case 1
 			        	          Log.e(TAG, "Case 1 - Add packet to cache");
 			        	          String drupalId = mRecordIdToDrupalIdMap.get(drupalRecordId);
-			        	          addPacketToCache(drupalId);	// Grabs the packet from Drupal and adds it to the Cache        	          
+			        	          addPacketToCacheSync(drupalId);	// Grabs the packet from Drupal and adds it to the Cache        	          
 		        	          }
 		            	 }
 		             } // End  for (String drupalRecordId : mDrupalRecordIdList)
@@ -1630,10 +1642,9 @@ public class DataOutHandler  implements JREngageDelegate {
 	             }
                 try {
       	          	Log.e(TAG, "Done processing all Drupal check entries");
-					synchronized(updateCacheSyncToken)
-					{
-					 	updateCacheSyncToken.notifyAll();	             
 
+      	          	synchronized(updateCacheSyncToken) {
+					 	updateCacheSyncToken.notifyAll();	             
 					}
 				} catch (Exception e) {
 					Log.e(TAG, e.toString());
@@ -1642,6 +1653,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	         } // void onFinish()
 	     };        
 	     
+	     Log.e(TAG, "Requesting drupal node summary");
 	     us.NodeGet(responseHandler);
 	}
 
@@ -1658,7 +1670,7 @@ public class DataOutHandler  implements JREngageDelegate {
         {
         	sendPacketToRemoteDb(dataOutPacket, queuedAction, drupalNodeId);
             try {
-            	sendPacketToRemoteDbToken.wait(20000);
+            	sendPacketToRemoteDbToken.wait(SYNC_TIMEOUT);
             } catch (InterruptedException e) {
                 Log.e(TAG, e.toString());
             	e.printStackTrace();
@@ -1713,7 +1725,7 @@ public class DataOutHandler  implements JREngageDelegate {
                     
                     // We can't set the cache to sent yet since it's not been associated with
                     // a drupal id yet. That comes with the first Drupal node summary list 
-                    // returned from Drupal
+                    // returned from Drupal. We do this processing in ProcessCache()
                     mDrupalIdsSuccessfullyAdded.add(nid);                    
 	 				
                 } catch (JSONException e) {
@@ -1782,10 +1794,11 @@ public class DataOutHandler  implements JREngageDelegate {
      */
     void addPacketToCacheSync(final String drupalNodeId) {
         Log.e(TAG, "Waiting for addPacketToCacheSyncToken");
+        addPacketToCache(drupalNodeId);        
         synchronized (addPacketToCacheSyncToken)
         {
             try {
-            	addPacketToCacheSyncToken.wait(20000);
+            	addPacketToCacheSyncToken.wait(SYNC_TIMEOUT);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -1810,6 +1823,14 @@ public class DataOutHandler  implements JREngageDelegate {
 			@Override
             public void onSuccess(JSONObject response) {
 				
+					try {
+						String recordId = (String) response.get("title");
+						Log.e(TAG, "Got object, now adding to cache, recid = " + recordId);
+					} catch (JSONException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+
                 	String drupalNodeContents = response.toString();
                 	// Now convert the drupal node to a dataOutPacket.                    	
                 	DataOutPacket dataOutPacket;
@@ -1856,7 +1877,7 @@ public class DataOutHandler  implements JREngageDelegate {
             public void onFinish() {
 	           synchronized(addPacketToCacheSyncToken)
 	            {
-					Log.d(TAG, "onFinish(addPacketToRemoteDrupalPacketCache)");
+					Log.d(TAG, "onFinish(addPacketToCache)");
 					addPacketToCacheSyncToken.notify();
 	            }
                 
@@ -1869,16 +1890,16 @@ public class DataOutHandler  implements JREngageDelegate {
     		nodeNum = Integer.parseInt(drupalNodeId);
             us.NodeGet(nodeNum, responseHandler);
             
-            Log.e(TAG, "Waiting for addPacketToCacheSyncToken");
-            synchronized (addPacketToCacheSyncToken)
-            {
-                try {
-                	addPacketToCacheSyncToken.wait();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            Log.e(TAG, "Done Waiting for addPacketToCacheSyncToken");            
+//            Log.e(TAG, "Waiting for addPacketToCacheSyncToken");
+//            synchronized (addPacketToCacheSyncToken)
+//            {
+//                try {
+//                	addPacketToCacheSyncToken.wait();
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//            Log.e(TAG, "Done Waiting for addPacketToCacheSyncToken");            
             
             
 		} catch (NumberFormatException e1) {

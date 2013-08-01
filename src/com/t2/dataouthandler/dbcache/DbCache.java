@@ -55,91 +55,10 @@ public class DbCache {
 		Log.e(TAG, "rowsDeleted = " + rowsDeleeted);
 	}
 	
-	public void addPacketToCache(String drupalId) {
-        UserServices us;
-        int nodeNum = 0;
-        
-        us = new UserServices(mServicesClient);    	
-
-        // First we need to get the packet from the remote database
-        
-        JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
-
-			@Override
-            public void onSuccess(JSONObject response) {
-				
-					// Now we've got a response packet that corresponds to
-					// the dataOutPacket, we need to convert it to an
-					// actual dataOutPacket, then to a sqlPacket so it can be saved in the cache DB
-                	DataOutPacket dataOutPacket;
-					try {
-
-						// Check to see of the cache has this already, if so then update instead of create
-						dataOutPacket = new DataOutPacket(response);
-
-						SqlPacket sqlPacketFromSql = db.getPacketByRecordId(dataOutPacket.mRecordId);
-						if (sqlPacketFromSql == null) {
-							SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
-					        db.createNewSqlPacket(sqlPacket);	
-						}
-						else {
-							SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
-							// Need to set sql packet id from the original because this packet was made from the response (no sql packet id)
-							sqlPacket.setSqlPacketId(sqlPacketFromSql.getSqlPacketId());
-							Log.e(TAG, "updating  dataOutPacket = " + dataOutPacket.toString());
-					        int retVal = db.updateSqlPacket(sqlPacket);	
-							Log.e(TAG, "retVal = " + retVal);
-							SqlPacket updatedSqlPacketFromSql = db.getPacketByRecordId(dataOutPacket.mRecordId);
-							Log.e(TAG, "updated  dataOutPacket = " + updatedSqlPacketFromSql.toString());
-							
-						}
-				        
-                    	if (mDatabaseUpdateListener != null) {
-                    		mDatabaseUpdateListener.remoteDatabasedeGetNodesComplete();
-                    	}    				        
-						
-					} catch (DataOutHandlerException e) {
-						Log.e(TAG, e.toString());
-						//e.printStackTrace();
-					}
-            }
-
-			@Override
-			public void onSuccess(JSONArray arg0) {
-				super.onSuccess(arg0);
-			}
-            
-            @Override
-            public void onFailure(Throwable e, JSONObject response) {
-                Log.e(TAG, e.toString());
-            }
-            
-            @Override
-			public void onFailure(Throwable arg0, JSONArray arg1) {
-                Log.e(TAG, arg0.toString());
-			}
-
-			@Override
-            public void onFinish() {
-                Log.d(TAG, "onFinish(addPacketToCache)");
-            }
-        };        
-        
-        
-    	try {
-    		nodeNum = Integer.parseInt(drupalId);
-            us.NodeGet(nodeNum, responseHandler);
-		} catch (NumberFormatException e1) {
-			Log.e(TAG, e1.toString());
-		}
-		
-	}
-
 	public void deletePacketFromCacheWithDeletingStatus(DataOutPacket dataOutPacket) {
 		SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
 	    sqlPacket.setCacheStatus(SqlPacket.CACHE_DELETING);
 
-	    // Don;t actually delete it, jsut set deleting status
 	    db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
 	    
 	    

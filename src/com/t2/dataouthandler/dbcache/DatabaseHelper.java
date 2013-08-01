@@ -30,6 +30,7 @@ import android.util.Log;
 public class DatabaseHelper
 {
 
+	private final String TAG = getClass().getName();	
 	private static final String DATABASE_NAME = "t2androidh2.db";
 	private static final int DATABASE_VERSION = 1;
 
@@ -89,8 +90,8 @@ public class DatabaseHelper
 		this.db = openHelper.getWritableDatabase();
 		Cursor cursor = null;
 		String query = "select PacketID, PacketSql, DrupalId, RecordId, CacheStatus from PERSISTENTCACHE";
-		cursor = this.db.rawQuery(query, null);
 		try {
+			cursor = this.db.rawQuery(query, null);
 			if (cursor.moveToFirst()) {
 				ArrayList<DataOutPacket> packets = new ArrayList<DataOutPacket>();
 				do 	{
@@ -127,13 +128,18 @@ public class DatabaseHelper
 				return null;
 			}
 		} catch (Exception e) {
-			Log.e("Exception", e.toString());
-			e.printStackTrace();
+			if (e != null) {
+				Log.e("Exception", e.toString());
+				e.printStackTrace();
+			}
+			else {
+				Log.e("Unknown Exception", e.toString());
+			}
 			return null;
 		}
 	}	
 	
-	public SqlPacket createNewSqlPacket(SqlPacket packet) {
+	public void createNewSqlPacket(SqlPacket packet) {
 
 		OpenHelper openHelper = new OpenHelper(this.context);
 		this.db = openHelper.getWritableDatabase();
@@ -146,10 +152,10 @@ public class DatabaseHelper
 			insertValues.put("CacheStatus", packet.getCacheStatus());
 			db.insert("PERSISTENTCACHE", null, insertValues);
 
-			return getPacketByRecordId(packet.getRecordId());
+			return;
 		}
 		catch(Exception ex)	{
-			return null;
+			return;
 		}
 		finally	{
 			db.close();
@@ -175,6 +181,10 @@ public class DatabaseHelper
 			updateValues.put("CacheStatus", packet.getCacheStatus());
 			retVal = db.update("PERSISTENTCACHE", updateValues, "PacketID = " + packet.getSqlPacketId(), null);
 
+			if (retVal != 1) {
+				Log.e(TAG, "ERROR updating database!");
+			}
+			
 			return retVal;
 		}
 		catch(Exception ex)	{
@@ -225,7 +235,7 @@ public class DatabaseHelper
 		}		
 	}
 	
-	public SqlPacket createNewSqlPacket(String packet, String recordId, String drupalId) {
+	public void createNewSqlPacket(String packet, String recordId, String drupalId) {
 
 		OpenHelper openHelper = new OpenHelper(this.context);
 		this.db = openHelper.getWritableDatabase();
@@ -239,10 +249,10 @@ public class DatabaseHelper
 			
 			db.insert("PERSISTENTCACHE", null, insertValues);
 
-			return getPacketByRecordId(recordId);
+			return;
 		}
 		catch(Exception ex)	{
-			return null;
+			return;
 		}
 		finally	{
 			db.close();
