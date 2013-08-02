@@ -693,6 +693,7 @@ public class DataOutHandler  implements JREngageDelegate {
             public void onSuccess(String response) {
             	Log.e(TAG, "response = " + response);
             	mLoggedInAsTraditional = true;
+            	mAuthenticated = true;
                 new AlertDialog.Builder(mContext).setMessage("Login was successful.").setPositiveButton("OK", null).setCancelable(true).create().show();
             }
 
@@ -725,6 +726,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	            public void onSuccess(String response) {
 	            	Log.e(TAG, "response = " + response);
 	            	mLoggedInAsTraditional = false;
+	            	mAuthenticated = false;
 	                new AlertDialog.Builder(mContext).setMessage("Logout was successful.").setPositiveButton("OK", null).setCancelable(true).create().show();
 	            }
 
@@ -971,17 +973,7 @@ public class DataOutHandler  implements JREngageDelegate {
 							ProcessCacheThread();		
 						}
 						
-				        Log.e(TAG, "Wait for UpdateCacheSyncToken");				
-				        synchronized (updateCacheSyncToken)
-				        {
-				            try {
-				            	updateCacheSyncToken.wait(SYNC_TIMEOUT);
-				            } catch (InterruptedException e) {
-				            	Log.e(TAG, e.toString());
-				                e.printStackTrace();
-				            }
-				        }
-				        Log.e(TAG, "Done Waiting for UpdateCacheSyncToken");								
+								
 
 				} // End if (isNetworkAvailable())
 			} // End while(true)
@@ -1655,6 +1647,18 @@ public class DataOutHandler  implements JREngageDelegate {
 	     
 	     Log.e(TAG, "Requesting drupal node summary");
 	     us.NodeGet(responseHandler);
+	     
+        Log.e(TAG, "Wait for UpdateCacheSyncToken");				
+        synchronized (updateCacheSyncToken)
+        {
+            try {
+            	updateCacheSyncToken.wait(SYNC_TIMEOUT);
+            } catch (InterruptedException e) {
+            	Log.e(TAG, e.toString());
+                e.printStackTrace();
+            }
+        }
+        Log.e(TAG, "Done Waiting for UpdateCacheSyncToken");	     
 	}
 
     /**
