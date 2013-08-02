@@ -43,7 +43,6 @@ import android.widget.Toast;
 
 
 public class AuthUtils {
-    @SuppressWarnings("unused")
     
     public static final String H2_HOST = "ec2-54-245-170-242.us-west-2.compute.amazonaws.com:8081";
     public static final String H2_QUERY = H2_HOST + "/query?dbname=test&colname=h2_test&limit=20";
