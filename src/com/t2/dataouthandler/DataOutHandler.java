@@ -115,14 +115,11 @@ public class DataOutHandler  implements JREngageDelegate {
 
 	private static final boolean VERBOSE_LOGGING = true;
 	
-	
-	
     private static String ENGAGE_APP_ID = "khekfggiembncbadmddh";
 //    private static String ENGAGE_TOKEN_URL = "http://t2health.us/h2/rpx/token_handler?destination=node";	
 
 	private static final int LOG_FORMAT_JSON = 1;	
 	private static final int LOG_FORMAT_FLAT = 2;	
-	
 
 	public static final String SHORT_TIME_STAMP = "\"TS\"";
 
@@ -135,8 +132,8 @@ public class DataOutHandler  implements JREngageDelegate {
 	public static final int SYNC_TIMEOUT = 200000;
 	
 	private ProgressDialog mProgressDialog;
-	
-	
+
+	/// Object tokens for Synchronizing calls to certain routines
     Object addPacketToCacheSyncToken = new Object();	
     Object updateCacheSyncToken = new Object();	
     Object sendPacketToRemoteDbToken = new Object();	
@@ -149,7 +146,16 @@ public class DataOutHandler  implements JREngageDelegate {
 	
 	private String mResult;
 
+	/**
+	 * Selects whether or not to show a traditional login alongside Janrain Social logins.
+	 * 
+	 * Traditional login speaks directly to the Drupal server.
+	 */
 	private boolean mAllowTraditionalLogin = true;
+	
+	/**
+	 * Signifies that user was logged in using traditional login (not janrain)
+	 */
 	private boolean mLoggedInAsTraditional = false;
 	
 	
@@ -200,7 +206,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	String mRemoteDatabase;	
 	
 	/**
-	 * Thread used to communicate messages in mPendingQueue to server
+	 * Thread used to communicate messages in background to server
 	 */
 	private DispatchThread mDispatchThread = null;	
 	
@@ -247,8 +253,6 @@ public class DataOutHandler  implements JREngageDelegate {
      */
     private String mAuthProvider;	
 	
-	
-	
     /**
 	 * True if JanRain has successfully authenticated a user. 
 	 */
@@ -258,11 +262,6 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * Set this to true to require authtication for all database puts. 
 	 */
 	private boolean mRequiresAuthentication = true;	
-	
-	/**
-	 * Queue for Rest packets waiting to be sent via HTTP
-	 */
-	List<DataOutPacket> mPendingQueue;	
 	
 	/**
 	 * Database manager when sending data to external Amazon database
@@ -360,23 +359,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		
 		return sDataOutHandler;
 	}		
-	
-	
-	public DataOutPacket getPacketByDrupalId(String nodeId) {
-		return null;
-	}
-	
-	public DataOutPacket getPacketByRecordId(String recordId) {
-		
-//		for (DataOutPacket packet : mRemotePacketCache.values()) {
-//			if (packet.mRecordId.equalsIgnoreCase(recordId)) {
-//				return packet;
-//			}
-//		}
-//		
-		return null;
-	}	
-	
+
 	/**
 	 * Constructor. Sets up context and user/session parameters
 	 * 
@@ -440,8 +423,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		mLogFormat = format;		
 	}
 	
-			
-	
 	/**
 	 * @author scott.coleman
 	 * Task to check the status of an AWS database table
@@ -473,7 +454,8 @@ public class DataOutHandler  implements JREngageDelegate {
 	 */
 	public void setRequiresAuthentication(boolean mRequiresAuthentication) {
 		this.mRequiresAuthentication = mRequiresAuthentication;
-	}	
+	}
+	
 	/**
 	 * Initialized specified database
 	 * 
@@ -613,7 +595,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		        
 		        JREngage.blockOnInitialization();
 			}				
-			
 		}
 		else if (databaseTypeString.equalsIgnoreCase("T2DRUPAL")) {
 			Log.d(TAG, "Using T2 Drupal Database type");
@@ -652,7 +633,6 @@ public class DataOutHandler  implements JREngageDelegate {
 					e.printStackTrace();
 				}
 			}			
-
 		}
 		
 		// Make sure a valid database was selected
@@ -663,13 +643,19 @@ public class DataOutHandler  implements JREngageDelegate {
 		// Now do any global database (ot other)  initialization
 		Log.d(TAG, "Initializing T2 database dispatcher");
 		Log.d(TAG, "Remote database name = " + mRemoteDatabase);
-		mPendingQueue = new ArrayList<DataOutPacket>();		
+
 		mDispatchThread = new DispatchThread();
 
 		mDispatchThread.start();		
 	}			
 	
-	public void logIn(final Activity thisActivity) {
+	/**
+	 * Displays authentication dialog and takes the user through
+	 * the entire authentication process.
+	 * 
+	 * @param thisActivity Calling party activity
+	 * 
+	 */public void logIn(final Activity thisActivity) {
 		if (mAuthenticated) {
 			new AlertDialog.Builder(mContext).setMessage("Already logged in, please logout first").setPositiveButton("OK", null).setCancelable(true).create().show();
 		}
@@ -701,7 +687,6 @@ public class DataOutHandler  implements JREngageDelegate {
 				mEngage.showAuthenticationDialog(thisActivity);
 			}			
 		}		
-		
 	}
 	
 	/**
@@ -747,6 +732,12 @@ public class DataOutHandler  implements JREngageDelegate {
 	}
 	
 	
+	/**
+	 * Performs traditional login via Drupal services.
+	 * 
+	 * @param username - username to use in Drupal login
+	 * @param password - password to use in Drupal login
+	 */
 	public void traditionalLogin(String username, String password) {
         UserServices us;		
         us = new UserServices(mServicesClient);
@@ -776,6 +767,9 @@ public class DataOutHandler  implements JREngageDelegate {
         });        
 	}
 	
+	/**
+	 * Performs traditional logout via Drupal Services
+	 */
 	void traditionalLogout() {
 	       UserServices us;		
 	        us = new UserServices(mServicesClient);
@@ -806,10 +800,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	                mProgressDialog.dismiss();
 	            }
 	        });		
-		
 	}
-	
-	
 	
 	/**
 	 * Cancells authentication
@@ -828,8 +819,6 @@ public class DataOutHandler  implements JREngageDelegate {
 //			mCookieStore.clear();
 //	        mServicesClient.setCookieStore(mCookieStore);   
 //		}
-        
-
 	}
 	
 	
@@ -911,12 +900,17 @@ public class DataOutHandler  implements JREngageDelegate {
 		}
 		
         if (mEngage != null) {
-//        	mEngage.removeDelegate((JREngageDelegate) context);
         	mEngage.removeDelegate(this);
         }	mT2AuthDelegate = null;
 		mAuthenticated = false;
 	}
 	
+	/**
+	 * Handles creation of a new database entry
+	 * 
+	 * @param dataOutPacket - packet to output to database
+	 * @throws DataOutHandlerException
+	 */
 	public void handleDataOut(final DataOutPacket dataOutPacket) throws DataOutHandlerException {
 
 		if (mRequiresAuthentication == true && mAuthenticated == false) {
@@ -973,6 +967,12 @@ public class DataOutHandler  implements JREngageDelegate {
 		}
 	}
 	
+	/**
+	 * Deletes data packet from the database
+	 * 
+	 * @param dataOutPacket - packet to delete
+	 * @throws DataOutHandlerException
+	 */
 	public void deleteRecord(final DataOutPacket dataOutPacket) throws DataOutHandlerException {
 		
 		if (mRequiresAuthentication == true && mAuthenticated == false) {
@@ -980,20 +980,20 @@ public class DataOutHandler  implements JREngageDelegate {
 		}		
 
 		if (mDatabaseEnabled) {
-				mNodeDeleteQueue.add(dataOutPacket.mRecordId);
-				mDbCache.deletePacketFromCacheWithDeletingStatus(dataOutPacket);
-				// The timed task will take care of deleting it from Drupal 
+			mNodeDeleteQueue.add(dataOutPacket.mRecordId);
+			mDbCache.deletePacketFromCacheWithDeletingStatus(dataOutPacket);
+			// The timed task will take care of deleting it from Drupal 
 
-				if (mInstance.mDatabaseUpdateListener != null) {
-                	mInstance.mDatabaseUpdateListener.remoteDatabaseDeleteComplete(dataOutPacket);
-                }   				
+			if (mInstance.mDatabaseUpdateListener != null) {
+            	mInstance.mDatabaseUpdateListener.remoteDatabaseDeleteComplete(dataOutPacket);
+            }   				
 		}		
 	}
 	
 	/**
 	 * @author scott.coleman
 	 *
-	 * This thread handles maintenance of the mPendingQueue
+	 * This thread handles maintenance of the cache
 	 * sending data out if the network is available.
 	 * 
 	 */
@@ -1010,7 +1010,6 @@ public class DataOutHandler  implements JREngageDelegate {
 				if(cancelled) {
 					break;
 				}
-				
 
 				for (int i = 1; i < 4; i++) {
 					try {
@@ -1021,26 +1020,20 @@ public class DataOutHandler  implements JREngageDelegate {
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
-					
 				}
-				
-		
 
 				Log.d(TAG, "Http dispatch thread tick");
 
 				// If the network is available post entries from the PendingQueue
 				if (isNetworkAvailable()) {
-						if (mRequiresAuthentication) {
-							if (mAuthenticated == true) {
-								ProcessCacheThread();		
-							}
-						}
-						else {
+					if (mRequiresAuthentication) {
+						if (mAuthenticated == true) {
 							ProcessCacheThread();		
 						}
-						
-								
-
+					}
+					else {
+						ProcessCacheThread();		
+					}
 				} // End if (isNetworkAvailable())
 			} // End while(true)
 				
@@ -1105,7 +1098,6 @@ public class DataOutHandler  implements JREngageDelegate {
 				}							        	
 	        }								
 			
-			
 			return result;
 		}
 
@@ -1115,7 +1107,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		public void cancel() {
 			this.cancelled = true;
 			Log.e(TAG, "Cancelled");
-			
 		}
 		
 		/**
@@ -1157,6 +1148,11 @@ public class DataOutHandler  implements JREngageDelegate {
 		handleDataOut(packet);				
 	}
     
+	/* (non-Javadoc)
+	 * Callback that indicates a successful JanRain authentication.
+	 * 
+	 * @see com.janrain.android.engage.JREngageDelegate#jrAuthenticationDidSucceedForUser(com.janrain.android.engage.types.JRDictionary, java.lang.String)
+	 */
 	@Override
 	public void jrAuthenticationDidSucceedForUser(JRDictionary auth_info,
 			String provider) {
@@ -1178,6 +1174,11 @@ public class DataOutHandler  implements JREngageDelegate {
 		}
 	}
 
+	/* (non-Javadoc)
+	 * Callback that indicates Janrain successfully contacted the TokenURL server (after authentication)
+	 * 
+	 * @see com.janrain.android.engage.JREngageDelegate#jrAuthenticationDidReachTokenUrl(java.lang.String, com.janrain.android.engage.net.async.HttpResponseHeaders, java.lang.String, java.lang.String)
+	 */
 	@Override
 	public void jrAuthenticationDidReachTokenUrl(String tokenUrl,
 			HttpResponseHeaders responseHeaders,String responsePayload,
@@ -1208,30 +1209,27 @@ public class DataOutHandler  implements JREngageDelegate {
 	@Override
 	public void jrSocialDidPublishJRActivity(JRActivityObject activity,
 			String provider) {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void jrSocialDidCompletePublishing() {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void jrEngageDialogDidFailToShowWithError(JREngageError error) {
 		Log.d(TAG, "jrEngageDialogDidFailToShowWithError");		
-
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void jrAuthenticationDidNotComplete() {
 		Log.d(TAG, "jrAuthenticationDidNotComplete");		
-		
 	}
 
+	/* (non-Javadoc)
+	 * Callback that indicates JanRain encountered a failure authenticating.
+	 * 
+	 * @see com.janrain.android.engage.JREngageDelegate#jrAuthenticationDidFailWithError(com.janrain.android.engage.JREngageError, java.lang.String)
+	 */
 	@Override
 	public void jrAuthenticationDidFailWithError(JREngageError error,
 			String provider) {
@@ -1243,6 +1241,11 @@ public class DataOutHandler  implements JREngageDelegate {
 		}		
 	}
 
+	/* (non-Javadoc)
+	 * Callback that indicates JanRain encountered a failure contacting the token URL	 
+	 * 
+	 * @see com.janrain.android.engage.JREngageDelegate#jrAuthenticationCallToTokenUrlDidFail(java.lang.String, com.janrain.android.engage.JREngageError, java.lang.String)
+	 */
 	@Override
 	public void jrAuthenticationCallToTokenUrlDidFail(String tokenUrl,
 			JREngageError error, String provider) {
@@ -1263,16 +1266,15 @@ public class DataOutHandler  implements JREngageDelegate {
 	@Override
 	public void jrSocialPublishJRActivityDidFail(JRActivityObject activity,
 			JREngageError error, String provider) {
-		// TODO Auto-generated method stub
 	} 	
-	
-	
-	
-	// --------------------------------------------------
-	// New caching method
-	// --------------------------------------------------
-	
-	
+
+	/**
+	 * Creates a formatted JSON string in the format that Drupal understands for creating a new
+	 * database entry in Drupal
+	 * 
+	 * @param dataOutPacket - packet to create Drupal string for
+	 * @return
+	 */
 	private String createDrupalPacketString(DataOutPacket dataOutPacket) {
 		ObjectNode item = JsonNodeFactory.instance.objectNode();
 		item.put("title", dataOutPacket.mRecordId);
@@ -1325,7 +1327,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	}
 	
 	/**
-	 * Writes drual formatted node to specified node (String)
+	 * Writes Drupal formatted node to specified node (String)
 	 * 
 	 * @param tag Data Tag
 	 * @param value Data Value
@@ -1343,7 +1345,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	}
 	
 	/**
-	 * Writes drual formatted node to specified node (Long)
+	 * Writes Drupal formatted node to specified node (Long)
 	 * 
 	 * @param tag Data Tag
 	 * @param value Data Value
@@ -1361,7 +1363,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	}
 	
 	/**
-	 * Writes drual formatted node to specified node (Int)
+	 * Writes Drupal formatted node to specified node (Int)
 	 * 
 	 * @param tag Data Tag
 	 * @param value Data Value
@@ -1379,7 +1381,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	}
 	
 	/**
-	 * Writes drual formatted node to specified node (Double)
+	 * Writes Drupal formatted node to specified node (Double)
 	 * 
 	 * @param tag Data Tag
 	 * @param value Data Value
@@ -1454,7 +1456,6 @@ public class DataOutHandler  implements JREngageDelegate {
 			}							        	
         }								
 		
-		
 		return result;
 	}
 	
@@ -1463,6 +1464,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	//		drupal ID is present immediately
 	// If added from the UI
 	//		drupal id is blank until the first timed update (ProcessCacheThread()).
+	//		at which time the local DB entries are updated with drupal node id
 	
 	
 	// To be called from DispatchThread
@@ -1475,9 +1477,8 @@ public class DataOutHandler  implements JREngageDelegate {
 
 		Log.d(TAG, "ProcessCacheThread()");
 		
-		
+		// Get list of all records in the local database
 		mSqlRecordIdList = (ArrayList<String>) mDbCache.getSqlIdList();	             
-
 		
         // -------------------------------------
         // Get Drupal Node Summary:
@@ -1495,8 +1496,7 @@ public class DataOutHandler  implements JREngageDelegate {
         		}
 	    		
 	     		JSONArray array = (JSONArray) arg0;
-
-	     			
+     			
 	            for (int i = 0; i < array.length(); i++) {
 	            	JSONObject jObject  = (JSONObject) array.opt(i);
 	            	try {
@@ -1526,8 +1526,6 @@ public class DataOutHandler  implements JREngageDelegate {
 //   	            Log.e(TAG, "mNodeDeleteQueue = " + mNodeDeleteQueue.toString());
         		}
 
-	             
-	             
 	             // At this point 
 	             //   mDrupalIdList contains a list of all record id's in Drupal
 	             //   mSqlIdList contains a list of all record id's in the SQL cache
@@ -1552,7 +1550,6 @@ public class DataOutHandler  implements JREngageDelegate {
         		}
 				super.onSuccess(arg0);
 			}
-	
 	         
 	         @Override
 	        public void onFailure(Throwable e, JSONObject response) {
@@ -1564,7 +1561,13 @@ public class DataOutHandler  implements JREngageDelegate {
 	             Log.e(TAG, "OnFailure(Throwable arg0, JSONArray arg1) " + arg0.toString());
 			}
 	
-				@Override
+			/* (non-Javadoc)
+			 * The HTTP call to retrieve the summary contents from Drupal has succeeded.
+			 * Now process the results.
+			 * 
+			 * @see com.loopj.android.http.AsyncHttpResponseHandler#onFinish()
+			 */
+			@Override
 	        public void onFinish() {
 	             Log.d(TAG, "onFinish(Drupal Node Summary)");
 	             
@@ -1666,12 +1669,7 @@ public class DataOutHandler  implements JREngageDelegate {
 									e.printStackTrace();
 								}
 			            	}
-			            				 
-	
-		            	 
 		            	 } // if (!mDrupalIdList.contains(id))
-		            	 
-		            	 
 		        	 }	  // end for (String id : mSqlIdList) 	
 	 
 		             for (String drupalRecordId : mDrupalRecordIdList) {
@@ -1729,6 +1727,7 @@ public class DataOutHandler  implements JREngageDelegate {
       	          		Log.e(TAG, "Done processing all Drupal check entries");
             		}
 
+            		// Notify self that all entries have been processed
       	          	synchronized(updateCacheSyncToken) {
 					 	updateCacheSyncToken.notifyAll();	             
 					}
@@ -1742,12 +1741,14 @@ public class DataOutHandler  implements JREngageDelegate {
  		if (VERBOSE_LOGGING) {
  			Log.e(TAG, "Requesting drupal node summary");
  		}
-	     us.NodeGet(responseHandler);
+	    us.NodeGet(responseHandler);
 	     
  		if (VERBOSE_LOGGING) {
  			Log.e(TAG, "Wait for UpdateCacheSyncToken");
  		}
-        synchronized (updateCacheSyncToken)
+
+		// Wait until all entries have been processed
+ 		synchronized (updateCacheSyncToken)
         {
             try {
             	updateCacheSyncToken.wait(SYNC_TIMEOUT);
@@ -1939,33 +1940,33 @@ public class DataOutHandler  implements JREngageDelegate {
 			@Override
             public void onSuccess(JSONObject response) {
 				
-					try {
-						String recordId = (String) response.get("title");
-						Log.d(TAG, "Got object, now adding to cache, recid = " + recordId);
-					} catch (JSONException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					}
+				try {
+					String recordId = (String) response.get("title");
+					Log.d(TAG, "Got object, now adding to cache, recid = " + recordId);
+				} catch (JSONException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 
-                	String drupalNodeContents = response.toString();
-                	// Now convert the drupal node to a dataOutPacket.                    	
-                	DataOutPacket dataOutPacket;
-					try {
-						dataOutPacket = new DataOutPacket(response);
-						// Make sure to set the drupal id while adding it to the cache
-        				synchronized(mDbCache) {
-        					mDbCache.addPacketToCache(dataOutPacket, drupalNodeId);
-        				}							
-	                	
-        				// TODO: calling this too often slows down the UI
-	                	if (mDatabaseUpdateListener != null) {
-	                		mDatabaseUpdateListener.remoteDatabaseCreateUpdateComplete(dataOutPacket);
-	                	}						
-						
-					} catch (DataOutHandlerException e) {
-						Log.e(TAG, e.toString());
-						//e.printStackTrace();
-					}
+            	String drupalNodeContents = response.toString();
+            	// Now convert the drupal node to a dataOutPacket.                    	
+            	DataOutPacket dataOutPacket;
+				try {
+					dataOutPacket = new DataOutPacket(response);
+					// Make sure to set the drupal id while adding it to the cache
+    				synchronized(mDbCache) {
+    					mDbCache.addPacketToCache(dataOutPacket, drupalNodeId);
+    				}							
+                	
+    				// TODO: calling this too often slows down the UI
+                	if (mDatabaseUpdateListener != null) {
+                		mDatabaseUpdateListener.remoteDatabaseCreateUpdateComplete(dataOutPacket);
+                	}						
+					
+				} catch (DataOutHandlerException e) {
+					Log.e(TAG, e.toString());
+					//e.printStackTrace();
+				}
             }
 
 			@Override
@@ -1999,8 +2000,6 @@ public class DataOutHandler  implements JREngageDelegate {
            			}
 					addPacketToCacheSyncToken.notify();
 	            }
-                
-            	
             }
         };        
         
@@ -2027,11 +2026,9 @@ public class DataOutHandler  implements JREngageDelegate {
     }		
 	
 	void updatemNodeDeleteQueue() {
-		//mNodeDeleteQueue
 	}
 	
 	public ArrayList<DataOutPacket> getPacketListDOP() {
 		return mDbCache.db.getPacketListDOP();
 	}
-	
 }
