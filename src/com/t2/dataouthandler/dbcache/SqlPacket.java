@@ -3,24 +3,22 @@ package com.t2.dataouthandler.dbcache;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Vector;
+import com.t2.dataouthandler.GlobalH2;
 
 import com.t2.dataouthandler.DataOutPacket;
 
 public class SqlPacket {
 
 
-	public static final int CACHE_ERROR = -1;	
-	public static final int CACHE_IDLE = 0;	
-	public static final int CACHE_SENDING = 1;	
-	public static final int CACHE_DELETING = 2;	
-	public static final int CACHE_SENT = 3;	
+
 	
 	private String sqlPacketId = "";
 	private String packetJson = "";
 	private String recordId = "";
 	private String drupalId = "";
+	private String changedDate = "";
 
-	private int cacheStatus = CACHE_IDLE;
+	private int cacheStatus = GlobalH2.CACHE_IDLE;
 
 
 	public SqlPacket() {
@@ -40,6 +38,7 @@ public class SqlPacket {
 		drupalId = dataOutPacket.mDrupalNid;
 		packetJson = dataOutPacket.toString();
 		sqlPacketId = dataOutPacket.mSqlPacketId;
+		changedDate = dataOutPacket.mChangedDate;
 		
 		String result = "";
 		
@@ -142,7 +141,17 @@ public class SqlPacket {
 	}
 
 	public String toString() {
-		return "cacheStatus: " + cacheStatus + " packetId: " + sqlPacketId + ", recordId: " + recordId + ", drupalId: " + drupalId + ", packet: " + packetJson;
+		return "cacheStatus: " + cacheStatus + " packetId: " + sqlPacketId + ", recordId: " + recordId + ", drupalId: " + drupalId + ", changedDate: " + changedDate + ", packet: " + packetJson;
 	}
+
+	public String getChangedDate() {
+		return changedDate;
+	}
+
+	public void setChangedDate(String changed_At) {
+		changedDate = changed_At;
+	}
+	
+	
 
 }

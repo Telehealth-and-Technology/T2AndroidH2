@@ -110,6 +110,7 @@ public class DataOutHandlerTags {
 	public static final String SESSION_ID = "session_id";
 	public static final String RECORD_ID = "record_id";
 	public static final String CREATED_AT = "created_at";
+	public static final String CHANGED_AT = "changed_at";
 	public static final String SESSION_DATE = "session_date";
 	public static final String APP_NAME = "app_name";
 	public static final String DATA_TYPE = "data_type";

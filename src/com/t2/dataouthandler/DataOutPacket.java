@@ -70,14 +70,22 @@ public class DataOutPacket implements Serializable {
 	public HashMap<String, Object> mItemsMap = new HashMap<String, Object>();
 
 	// Private record properties
-	public String mSqlPacketId;	
-	public String mDrupalNid;
+	public String mSqlPacketId;		// This is the SQLite row number
+	public String mChangedDate;		//
 	public String mLoggingString;
 	public String mQueuedAction = "C";		// Assume all actions are Create unless specifically set otherwise
 	
+	// Drupal prime properties (Native to drupal)
+	public String mDrupalNid;		// This is assigned by Drupal ("NID")
+	public String mStructureType;
+	public String mFieldLanguage;
+	public String mTitle; // Same as mRecordId
+	
+	public int mCacheStatus = GlobalH2.CACHE_IDLE;	
+	
 
 	/**
-	 * Construct a DataOutPacket from a JSON string (supplied by Drupal)
+	 * Construct a DataOutPacket from a SQL packet
 	 * @param drupalObject
 	 * @throws DataOutHandlerException 
 	 */
@@ -85,6 +93,8 @@ public class DataOutPacket implements Serializable {
 		this.mRecordId = sqlPacket.getRecordId();
 		this.mDrupalNid = sqlPacket.getDrupalId();
 		this.mSqlPacketId = sqlPacket.getSqlPacketId();
+		this.mChangedDate = sqlPacket.getChangedDate();
+		this.mCacheStatus = sqlPacket.getCacheStatus();
 		
 		try {
 			JSONObject mainObject = new JSONObject(sqlPacket.getPacketJson());
@@ -224,6 +234,7 @@ public class DataOutPacket implements Serializable {
     	add(DataOutHandlerTags.RECORD_ID, mRecordId);
     	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
     	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
+    	add(DataOutHandlerTags.CHANGED_AT, currentTimeString);
     	add(DataOutHandlerTags.PLATFORM, "Android");		    	
     	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);	    	
 	}

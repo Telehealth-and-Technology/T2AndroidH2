@@ -12,6 +12,7 @@ import com.loopj.android.http.JsonHttpResponseHandler;
 import com.t2.dataouthandler.DataOutHandlerException;
 import com.t2.dataouthandler.DataOutPacket;
 import com.t2.dataouthandler.DatabaseCacheUpdateListener;
+import com.t2.dataouthandler.GlobalH2;
 import com.t2.drupalsdk.ServicesClient;
 import com.t2.drupalsdk.UserServices;
 
@@ -57,7 +58,7 @@ public class DbCache {
 	
 	public void deletePacketFromCacheWithDeletingStatus(DataOutPacket dataOutPacket) {
 		SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
-	    sqlPacket.setCacheStatus(SqlPacket.CACHE_DELETING);
+	    sqlPacket.setCacheStatus(GlobalH2.CACHE_DELETING);
 
 	    db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
 	    
@@ -77,7 +78,7 @@ public class DbCache {
 	}
 	
 	public void deletePacketFromCache(SqlPacket sqlPacket) {
-	    sqlPacket.setCacheStatus(SqlPacket.CACHE_DELETING);
+	    sqlPacket.setCacheStatus(GlobalH2.CACHE_DELETING);
 	    db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
 	}
 	
@@ -92,7 +93,7 @@ public class DbCache {
 
 	public void addPacketToCacheWithSendingStatus(DataOutPacket dataOutcket) {
 		SqlPacket sqlPacket = new SqlPacket(dataOutcket);
-		sqlPacket.setCacheStatus(SqlPacket.CACHE_SENDING);
+		sqlPacket.setCacheStatus(GlobalH2.CACHE_SENDING);
         db.createNewSqlPacket(sqlPacket);		
 	}	
 	

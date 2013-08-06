@@ -1522,9 +1522,11 @@ public class DataOutHandler  implements JREngageDelegate {
         		if (VERBOSE_LOGGING) {
    	             	Log.e(TAG, "Updated mDrupalRecordIdList, mRecordIdToDrupalIdMap, and mDrupalIdToRecordIdMap");
    	             	Log.e(TAG, "mDrupalRecordIdList = " + mDrupalRecordIdList.toString());
-//   	            Log.e(TAG, "mSqlRecordIdList = " + mSqlRecordIdList.toString());
+   	             	Log.e(TAG, "mSqlRecordIdList = " + mSqlRecordIdList.toString());
 //   	            Log.e(TAG, "mNodeDeleteQueue = " + mNodeDeleteQueue.toString());
         		}
+        		
+        		        		
 
 	             // At this point 
 	             //   mDrupalIdList contains a list of all record id's in Drupal
@@ -1589,7 +1591,7 @@ public class DataOutHandler  implements JREngageDelegate {
 			            				 Log.e(TAG, "setting RecordId/DrupalId " + recordId + ", " + drupalId + " to idle");
 		            				 }
 		     	                    // Now set the status of the cache packet to idle
-		     		 				sqlPacket.setCacheStatus(SqlPacket.CACHE_IDLE);
+		     		 				sqlPacket.setCacheStatus(GlobalH2.CACHE_IDLE);
 									mDbCache.db.updateSqlPacket(sqlPacket);
 		     		 				i.remove();
 								}										
@@ -1609,8 +1611,8 @@ public class DataOutHandler  implements JREngageDelegate {
 		        	        // Two possible cases here
 		        	        // 1 Packet newly inserted by self        -> Add (send) the packet to the DB
 		        	        // 2 Packet deleted by other from DB      -> Remove the packet from the cache
-	        	        	Boolean isSendingOrSend = (sqlPacket.getCacheStatus() == SqlPacket.CACHE_SENDING || 
-	        	        			sqlPacket.getCacheStatus() == SqlPacket.CACHE_SENT);
+	        	        	Boolean isSendingOrSend = (sqlPacket.getCacheStatus() == GlobalH2.CACHE_SENDING || 
+	        	        			sqlPacket.getCacheStatus() == GlobalH2.CACHE_SENT);
 			            	if (isSendingOrSend) {
 			            		
 				            	// Packet exists in cache but not on on Drupal
@@ -1628,7 +1630,7 @@ public class DataOutHandler  implements JREngageDelegate {
 									try {
 										
 							 			synchronized(mDbCache) {
-							 				sqlPacket.setCacheStatus(SqlPacket.CACHE_SENT);
+							 				sqlPacket.setCacheStatus(GlobalH2.CACHE_SENT);
 											mDbCache.db.updateSqlPacket(sqlPacket);
 										}										
 										
@@ -1665,7 +1667,7 @@ public class DataOutHandler  implements JREngageDelegate {
 				                    	mInstance.mDatabaseUpdateListener.remoteDatabaseDeleteComplete(dataOutPacket);
 				                    } 				            		
 								} catch (DataOutHandlerException e) {
-									// TODO Auto-generated catch block
+									Log.e(TAG, e.toString());
 									e.printStackTrace();
 								}
 			            	}
@@ -1760,6 +1762,13 @@ public class DataOutHandler  implements JREngageDelegate {
 		if (VERBOSE_LOGGING) {
 			Log.e(TAG, "Done Waiting for UpdateCacheSyncToken");
 		}
+		
+		// Give notice that the internal cache should now be in sync with the remote database
+		if (mDatabaseUpdateListener != null) {
+    		mDatabaseUpdateListener.remoteDatabaseSyncComplete(mRecordIdToDrupalIdMap);
+    	}	        		
+		
+		
 	}
 
     /**
@@ -1944,7 +1953,7 @@ public class DataOutHandler  implements JREngageDelegate {
 					String recordId = (String) response.get("title");
 					Log.d(TAG, "Got object, now adding to cache, recid = " + recordId);
 				} catch (JSONException e1) {
-					// TODO Auto-generated catch block
+					Log.e(TAG, e1.toString());
 					e1.printStackTrace();
 				}
 
@@ -2031,4 +2040,18 @@ public class DataOutHandler  implements JREngageDelegate {
 	public ArrayList<DataOutPacket> getPacketListDOP() {
 		return mDbCache.db.getPacketListDOP();
 	}
+	
+	public DataOutPacket getPacketByRecordId(String recordId) {
+		SqlPacket sqlPacket = mDbCache.db.getPacketByRecordId(recordId); 
+		DataOutPacket dataOutpacket;
+		try {
+			dataOutpacket = new DataOutPacket(sqlPacket);
+			return dataOutpacket;
+		} catch (DataOutHandlerException e) {
+			Log.e(TAG, e.toString());
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
 }
