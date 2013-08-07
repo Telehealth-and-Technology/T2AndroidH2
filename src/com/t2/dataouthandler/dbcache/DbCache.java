@@ -88,19 +88,25 @@ public class DbCache {
 	// --------------------------------------------------
 	public void addPacketToCache(DataOutPacket dataOutcket) {
 		SqlPacket sqlPacket = new SqlPacket(dataOutcket);
-        db.createNewSqlPacket(sqlPacket);		
+		synchronized(db) {
+			db.createNewSqlPacket(sqlPacket);
+		}
 	}
 
 	public void addPacketToCacheWithSendingStatus(DataOutPacket dataOutcket) {
 		SqlPacket sqlPacket = new SqlPacket(dataOutcket);
 		sqlPacket.setCacheStatus(GlobalH2.CACHE_SENDING);
-        db.createNewSqlPacket(sqlPacket);		
+		synchronized(db) {		
+			db.createNewSqlPacket(sqlPacket);
+		}
 	}	
 	
 	public void addPacketToCache(DataOutPacket dataOutcket, String drupalId) {
 		SqlPacket sqlPacket = new SqlPacket(dataOutcket);
 		sqlPacket.setDrupalId(drupalId);
-        db.createNewSqlPacket(sqlPacket);		
+		synchronized(db) {
+			db.createNewSqlPacket(sqlPacket);
+		}
 	}
 	
 	
@@ -138,4 +144,24 @@ public class DbCache {
 		}		
 		
 	} // End updateDrupalIds() 
+	
+	public ArrayList<DataOutPacket> getPacketListDOP() {
+		synchronized(db) {
+			return db.getPacketListDOP();
+		}
+	}
+	
+	
+	public SqlPacket getPacketByRecordId(String recordId) {
+		synchronized(db) {
+			return db.getPacketByRecordId(recordId);
+		}		
+	}
+	
+	public int updateSqlPacket(SqlPacket packet) {
+		synchronized(db) {
+			return db.updateSqlPacket(packet);
+		}		
+	}
+	
 }

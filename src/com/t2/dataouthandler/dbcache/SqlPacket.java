@@ -3,13 +3,16 @@ package com.t2.dataouthandler.dbcache;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Vector;
+
+import android.util.Log;
+
 import com.t2.dataouthandler.GlobalH2;
 
 import com.t2.dataouthandler.DataOutPacket;
 
 public class SqlPacket {
 
-
+	private static final String TAG = SqlPacket.class.getSimpleName();
 
 	
 	private String sqlPacketId = "";
@@ -34,6 +37,9 @@ public class SqlPacket {
 	 * @param dataOutPacket Packet to construct from
 	 */
 	public SqlPacket(DataOutPacket dataOutPacket) {
+
+    	//Log.e(TAG, "Creating Sql packet for " + dataOutPacket.toString());
+		
 		recordId = dataOutPacket.mRecordId;
 		drupalId = dataOutPacket.mDrupalNid;
 		packetJson = dataOutPacket.toString();
@@ -47,23 +53,35 @@ public class SqlPacket {
 		result += "{";
 		   Iterator it = dataOutPacket.mItemsMap.entrySet().iterator();
 		    while (it.hasNext()) {
-		        Map.Entry pairs = (Map.Entry)it.next();
-		        String key = (String) pairs.getKey();
-		        Object objKey = pairs.getKey();
-		        Object objValue = pairs.getValue();
-		        
-		        if (objValue instanceof Vector) {
-			        result += addQuotes(objKey.toString()) + ":"; 
-		        	result += "[";
-		        	String vectorString = "";
-		        	for (Object obj : (Vector) objValue) {
-		        		vectorString += addQuotes(obj.toString()) + ",";
-		        	}
-		        	result += vectorString.substring(0, vectorString.length() - 1) + "],";
-		        }
-		        else {
-			        result += addQuotes(objKey.toString()) + ":" + addQuotes(objValue.toString()) + ","; 
-		        }
+		        try {
+					Map.Entry pairs = (Map.Entry)it.next();
+					String key = (String) pairs.getKey();
+					Object objKey = pairs.getKey();
+					Object objValue = pairs.getValue();
+					
+					if (objValue instanceof Vector) {
+					    result += addQuotes(objKey.toString()) + ":"; 
+					    Vector v = (Vector) objValue;
+						String vectorString = "";
+					    if (v.size() == 0) {
+					    	result += addQuotes("[]") + ",";
+					    }
+					    else {
+					    	result += "[";
+					    	for (Object obj : (Vector) objValue) {
+					    		vectorString += addQuotes(obj.toString()) + ",";
+					    	}
+					    	result += vectorString.substring(0, vectorString.length() - 1) + "],";
+					    }
+						
+					}
+					else {
+					    result += addQuotes(objKey.toString()) + ":" + addQuotes(objValue.toString()) + ","; 
+					}
+				} catch (Exception e) {
+					Log.e(TAG, e.toString());
+					e.printStackTrace();
+				}
 		        
 		        
 		        
@@ -86,6 +104,7 @@ public class SqlPacket {
 		    try {
 				packetJson = result.substring(0, result.length()-1) + "}";
 			} catch (Exception e) {
+				Log.e(TAG, e.toString());
 				e.printStackTrace();
 			}
 	}

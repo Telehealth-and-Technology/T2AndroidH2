@@ -152,7 +152,7 @@ public class DataOutPacket implements Serializable {
 			String recordId;
 			try {
 				recordId = drupalObject.getString("field_record_id");
-				if (recordId == null) {
+				if (recordId == null || recordId.length() < 13) {			// Cheap trick to see if record is is good
     				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
     		}			
 			} catch (JSONException e2) {

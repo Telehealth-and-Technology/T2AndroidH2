@@ -111,7 +111,7 @@ public class DataOutHandler  implements JREngageDelegate {
     private static String ENGAGE_TOKEN_URL_SSL = "https://t2health.us/h2/rpx/token_handler?destination=node";	
 	
 	private static final boolean AWS_USE_SSL = false;
-	private static final boolean DRUPAL_USE_SSL = true;
+	private static final boolean DRUPAL_USE_SSL = false;
 
 	private static final boolean VERBOSE_LOGGING = true;
 	
@@ -755,8 +755,8 @@ public class DataOutHandler  implements JREngageDelegate {
 
             @Override
             public void onFailure(Throwable e, String response) {
-                Log.e(TAG, e.getMessage());
-                new AlertDialog.Builder(mContext).setMessage("Login failed.").setPositiveButton("OK", null).setCancelable(true).create().show();
+                Log.e(TAG, e.toString());
+                new AlertDialog.Builder(mContext).setMessage("Login failed: " + e.toString()).setPositiveButton("OK", null).setCancelable(true).create().show();
             }
 
             @Override
@@ -790,7 +790,7 @@ public class DataOutHandler  implements JREngageDelegate {
 
 	            @Override
 	            public void onFailure(Throwable e, String response) {
-	                Log.e(TAG, e.getMessage());
+	                Log.e(TAG, e.toString());
 	                new AlertDialog.Builder(mContext).setMessage("Logout failed.").setPositiveButton("OK", null).setCancelable(true).create().show();
 	            }
 
@@ -944,7 +944,7 @@ public class DataOutHandler  implements JREngageDelegate {
 			throw new DataOutHandlerException("User is not authenticated");
 		}		
 			
-		SqlPacket sqlPacket = mDbCache.db.getPacketByRecordId(dataOutPacket.mRecordId);
+		SqlPacket sqlPacket = mDbCache.getPacketByRecordId(dataOutPacket.mRecordId);
 		if (sqlPacket == null) {
 			throw new DataOutHandlerException("Packet RecordID " + dataOutPacket.mRecordId + " does not exist in Cache");
 		}
@@ -956,9 +956,9 @@ public class DataOutHandler  implements JREngageDelegate {
 			SqlPacket sqlPacketNew = new SqlPacket(dataOutPacket);
 			sqlPacketNew.setSqlPacketId(sqlPacket.getSqlPacketId());
 			
-			int retVal = mDbCache.db.updateSqlPacket(sqlPacketNew);	
+			int retVal = mDbCache.updateSqlPacket(sqlPacketNew);	
 			Log.d(TAG, "Updated: retVal = " + retVal + " record id = " + dataOutPacket.mRecordId);
-			SqlPacket updatedSqlPacketFromSql = mDbCache.db.getPacketByRecordId(dataOutPacket.mRecordId);
+			SqlPacket updatedSqlPacketFromSql = mDbCache.getPacketByRecordId(dataOutPacket.mRecordId);
 			
 			// The timed task will take care of updating it in Drupal 
             if (mInstance.mDatabaseUpdateListener != null) {
@@ -1585,14 +1585,14 @@ public class DataOutHandler  implements JREngageDelegate {
 		            		 String drupalId = i.next();
 		            		 String recordId = mDrupalIdToRecordIdMap.get(drupalId);
 		            		 if (recordId != null) {
-		            			 SqlPacket sqlPacket = mDbCache.db.getPacketByRecordId(recordId);
+		            			 SqlPacket sqlPacket = mDbCache.getPacketByRecordId(recordId);
 		            			 if (sqlPacket != null) {
 		            				 if (VERBOSE_LOGGING) {
 			            				 Log.e(TAG, "setting RecordId/DrupalId " + recordId + ", " + drupalId + " to idle");
 		            				 }
 		     	                    // Now set the status of the cache packet to idle
 		     		 				sqlPacket.setCacheStatus(GlobalH2.CACHE_IDLE);
-									mDbCache.db.updateSqlPacket(sqlPacket);
+									mDbCache.updateSqlPacket(sqlPacket);
 		     		 				i.remove();
 								}										
 		            		}
@@ -1606,7 +1606,10 @@ public class DataOutHandler  implements JREngageDelegate {
 			        	        Log.e(TAG, "recordId: " + recordId + " - Packet exists in Cache but not in DB");
 		            		}
 	
-	        	        	SqlPacket sqlPacket = mDbCache.db.getPacketByRecordId(recordId); // Since recordId is in mSqlRecordIdList we know this will not return null
+		            		if (recordId == null) {
+		            			break;
+		            		}
+		            		SqlPacket sqlPacket = mDbCache.getPacketByRecordId(recordId); // Since recordId is in mSqlRecordIdList we know this will not return null
 			            	// Exists in cache but not on on Drupal
 		        	        // Two possible cases here
 		        	        // 1 Packet newly inserted by self        -> Add (send) the packet to the DB
@@ -1631,7 +1634,7 @@ public class DataOutHandler  implements JREngageDelegate {
 										
 							 			synchronized(mDbCache) {
 							 				sqlPacket.setCacheStatus(GlobalH2.CACHE_SENT);
-											mDbCache.db.updateSqlPacket(sqlPacket);
+											mDbCache.updateSqlPacket(sqlPacket);
 										}										
 										
 										dataOutPacket = new DataOutPacket(sqlPacket);
@@ -1677,7 +1680,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		             for (String drupalRecordId : mDrupalRecordIdList) {
 		            	 
 		            	 if (!mSqlRecordIdList.contains(drupalRecordId)) {
-		            		 //SqlPacket sqlPacket = mDbCache.db.getPacketByRecordId(drupalRecordId); // Can't do this if not in CACHE!!!!!!
+		            		 //SqlPacket sqlPacket = mDbCache.getPacketByRecordId(drupalRecordId); // Can't do this if not in CACHE!!!!!!
 		            		 
 			            		if (VERBOSE_LOGGING) {
 			            			Log.e(TAG, "recordId: " + drupalRecordId + " - Packet exists in DB but not in Cache");
@@ -2038,11 +2041,11 @@ public class DataOutHandler  implements JREngageDelegate {
 	}
 	
 	public ArrayList<DataOutPacket> getPacketListDOP() {
-		return mDbCache.db.getPacketListDOP();
+		return mDbCache.getPacketListDOP();
 	}
 	
 	public DataOutPacket getPacketByRecordId(String recordId) {
-		SqlPacket sqlPacket = mDbCache.db.getPacketByRecordId(recordId); 
+		SqlPacket sqlPacket = mDbCache.getPacketByRecordId(recordId); 
 		DataOutPacket dataOutpacket;
 		try {
 			dataOutpacket = new DataOutPacket(sqlPacket);
@@ -2053,5 +2056,7 @@ public class DataOutHandler  implements JREngageDelegate {
 			return null;
 		}
 	}
+	
+	
 	
 }
