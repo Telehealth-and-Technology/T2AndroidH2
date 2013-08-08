@@ -218,21 +218,16 @@ public class DataOutHandler  implements JREngageDelegate {
 	 */
 	private String mApplicationVersion = "";
 
-	// JanRain Stuff
+	/**
+	 * Engage App ID - Supplied by JanRain
+	 */
 	String mEngageAppId = ENGAGE_APP_ID;
+
+	/**
+	 * Token URL used for Janrain/Drupal integration
+	 */
 	String mEngageTokenUrl = ENGAGE_TOKEN_URL;
 	
-	// T2 Drupal stuff
-	/**
-	 * Used to save Drupal session cookies for authentication.
-	 */
-	private PersistentCookieStore mCookieStore;
-
-	/**
-	 * HTTP services client used to talk to Drupal.
-	 */
-	private ServicesClient mServicesClient;	
-
 	/**
 	 * Engage instance for openID authentication
 	 */
@@ -252,9 +247,20 @@ public class DataOutHandler  implements JREngageDelegate {
      * The provider the user used to authenticate with (provided by JanRain)
      */
     private String mAuthProvider;	
-	
+    
+    // T2 Drupal stuff
+	/**
+	 * Used to save Drupal session cookies for authentication.
+	 */
+	private PersistentCookieStore mCookieStore;
+
+	/**
+	 * HTTP services client used to talk to Drupal.
+	 */
+	private ServicesClient mServicesClient;	
+
     /**
-	 * True if JanRain has successfully authenticated a user. 
+	 * True if this module has successfully authenticated a user. 
 	 */
 	private boolean mAuthenticated = false;
 	
@@ -302,6 +308,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	
 	/**
 	 * Session cookie Janrain Obtains from Drupal for active session
+	 *   This is used to communicate the login info to Drupal
 	 */
 	private Cookie drupalSessionCookie;
 	
@@ -314,7 +321,6 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * List of node ids which we have reuqested to be deleted from Drupal
 	 */
 	private List<String> mNodeDeleteQueue = new ArrayList<String>();	
-	
 
 	/**
 	 * List of drupal node id's which have been successfully added  to drupal
@@ -326,12 +332,22 @@ public class DataOutHandler  implements JREngageDelegate {
 	 */
 	public DbCache mDbCache;
 	
-	private DatabaseCacheUpdateListener mDatabaseUpdateListener;
-	
+	/**
+	 * Saved instance for this module
+	 */
 	private DataOutHandler mInstance;
 	
 	
+	/**
+	 * Listener for database cache events (Updates, etc)
+	 */
+	private DatabaseCacheUpdateListener mDatabaseUpdateListener;
 	
+	
+	/**
+	 * Sets the database listener
+	 * @param mDatabaseUpdateListener
+	 */
 	public void setDatabaseUpdateListener(DatabaseCacheUpdateListener mDatabaseUpdateListener) {
 		this.mDatabaseUpdateListener = mDatabaseUpdateListener;
 	}
@@ -344,6 +360,17 @@ public class DataOutHandler  implements JREngageDelegate {
 		this.mAwsTableName = awsTableName;
 	}	
 	
+	/**
+	 * Retrieves a static instance of DataOutHandler
+	 * 
+	 * @param context - Android context of calling party
+	 * @param userId - Used id
+	 * @param sessionDate	- Date of the session
+	 * @param appName - Application name
+	 * @param dataType - data type to store
+	 * @param sessionId - Session Id
+	 * @return
+	 */
 	public synchronized static DataOutHandler getInstance(Context context, String userId, String sessionDate, String appName, String dataType, long sessionId) {
 		if (sDataOutHandler == null) {
 			sDataOutHandler = new DataOutHandler(context, userId, sessionDate, appName, dataType, sessionId);
@@ -916,6 +943,12 @@ public class DataOutHandler  implements JREngageDelegate {
 		if (mRequiresAuthentication == true && mAuthenticated == false) {
 			throw new DataOutHandlerException("User is not authenticated");
 		}
+
+		if (dataOutPacket == null) {
+			throw new DataOutHandlerException("Data packet is null");
+		}
+		
+		
 		
 		if (mDatabaseEnabled) {
 			dataOutPacket.mQueuedAction = "C";
@@ -1808,16 +1841,18 @@ public class DataOutHandler  implements JREngageDelegate {
      */
     void sendPacketToRemoteDb(final DataOutPacket dataOutPacket, final String queuedAction, final String drupalNodeId) {
         UserServices us;
-
-        String jsonString = "";      
+        final String recordId;
+        String jsonString = "";   
         
         if (dataOutPacket != null) {
 
             Log.d(TAG, "sendPacketToRemoteDb(" + dataOutPacket.mRecordId + ")");
             jsonString = createDrupalPacketString(dataOutPacket);        
+            recordId = dataOutPacket.mRecordId;
         }
         else {
             Log.d(TAG, "sendPacketToRemoteDb - deleting drupal node id  + " + drupalNodeId + ")");
+            recordId = "";
         }
         
 		// Check to see if we've stored a Drupal session cookie. If so then attach then to 
@@ -1868,7 +1903,9 @@ public class DataOutHandler  implements JREngageDelegate {
             
             @Override
             public void onFailure(Throwable e, JSONObject response) {
-                Log.e(TAG, e.toString());
+                Log.e(TAG, e.toString() + recordId);
+                
+//need to set flag so this gets set to idle                
             	if (mDatabaseUpdateListener != null) {
             		mDatabaseUpdateListener.remoteDatabaseFailure(e.toString());
             	}	                 

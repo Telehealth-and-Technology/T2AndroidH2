@@ -51,17 +51,19 @@ public class DbCache {
 	}
 	
 	public void removePacketFromCache(String drupalId) {
-		
-		int rowsDeleeted = db.deleteSqlPacketByDrupalId(drupalId);
-		Log.e(TAG, "rowsDeleted = " + rowsDeleeted);
+		synchronized(db) {
+			int rowsDeleeted = db.deleteSqlPacketByDrupalId(drupalId);
+			Log.e(TAG, "rowsDeleted = " + rowsDeleeted);
+		}
 	}
 	
 	public void deletePacketFromCacheWithDeletingStatus(DataOutPacket dataOutPacket) {
-		SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
-	    sqlPacket.setCacheStatus(GlobalH2.CACHE_DELETING);
-
-	    db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
-	    
+		synchronized(db) {
+			SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
+		    sqlPacket.setCacheStatus(GlobalH2.CACHE_DELETING);
+	
+		    db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
+		}	    
 	    
 //	    SqlPacket sqlPacketFromSql = db.getPacketByRecordId(dataOutPacket.mRecordId);	   
 //	    if (sqlPacketFromSql != null) {
@@ -73,13 +75,17 @@ public class DbCache {
 	    
 	}
 	public void deletePacketFromCache(DataOutPacket dataOutPacket) {
-		SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
-	    db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
+		synchronized(db) {
+			SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
+			db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
+		}
 	}
 	
 	public void deletePacketFromCache(SqlPacket sqlPacket) {
-	    sqlPacket.setCacheStatus(GlobalH2.CACHE_DELETING);
-	    db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
+		synchronized(db) {
+			sqlPacket.setCacheStatus(GlobalH2.CACHE_DELETING);
+			db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
+		}
 	}
 	
 	

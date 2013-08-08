@@ -356,8 +356,8 @@ public class DatabaseHelper
 			db.close();
 			return outPacket;
 		}
-		else
-		{
+		else {
+			Log.e(TAG, "Can't find cache packet for record id " + recordId);
 			cursor.close();
 			db.close();
 			return null;

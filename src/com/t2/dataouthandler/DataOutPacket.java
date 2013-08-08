@@ -90,11 +90,18 @@ public class DataOutPacket implements Serializable {
 	 * @throws DataOutHandlerException 
 	 */
 	public DataOutPacket(SqlPacket sqlPacket) throws DataOutHandlerException {
+
+		if (sqlPacket == null) {
+			throw new DataOutHandlerException("null sql packet");			
+		}
+		
 		this.mRecordId = sqlPacket.getRecordId();
 		this.mDrupalNid = sqlPacket.getDrupalId();
 		this.mSqlPacketId = sqlPacket.getSqlPacketId();
 		this.mChangedDate = sqlPacket.getChangedDate();
 		this.mCacheStatus = sqlPacket.getCacheStatus();
+		
+
 		
 		try {
 			JSONObject mainObject = new JSONObject(sqlPacket.getPacketJson());
