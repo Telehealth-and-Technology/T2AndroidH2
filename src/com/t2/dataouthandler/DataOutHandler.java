@@ -1311,7 +1311,8 @@ public class DataOutHandler  implements JREngageDelegate {
 	private String createDrupalPacketString(DataOutPacket dataOutPacket) {
 		ObjectNode item = JsonNodeFactory.instance.objectNode();
 		item.put("title", dataOutPacket.mRecordId);
-		item.put("type", "sensor_data");
+//		item.put("type", "sensor_data");
+		item.put("type", dataOutPacket.mStructureType);
 		item.put("language", "und");										
 
 		Iterator it = dataOutPacket.mItemsMap.entrySet().iterator();
@@ -2078,7 +2079,8 @@ public class DataOutHandler  implements JREngageDelegate {
 	}
 	
 	/**
-	 * Updateds the cache records with drupakl node id's collected from the DB
+	 * Requests a list of DataOutPackets from the local cache
+	 * 	This version returns all data types
 	 * @param mDrupalIdMap
 	 */
 	public ArrayList<DataOutPacket> getPacketList() {
@@ -2086,7 +2088,19 @@ public class DataOutHandler  implements JREngageDelegate {
 	}
 	
 	/**
-	 * Gets specific packet based on redcord id
+	 * Requests a list of DataOutPackets from the local cache
+	 *  The list returned is filtered by the data types contained in 
+	 *  the list structureTypes. Note that you must use only 
+	 *  pre-configured data types. ie sensor_data, habit, checkin, etc.
+	 * @param structureTypes - List of Structure types to filter on
+	 * @return - List of DataOutPackets in the local cache
+	 */
+	public ArrayList<DataOutPacket> getPacketList(List<String> structureTypes) {
+		return mDbCache.getPacketList(structureTypes);
+	}	
+	
+	/**
+	 * Gets specific packet based on record id
 	 * @param recordId - record id to use in search
 	 * @return - Packet corresponding to record id
 	 */

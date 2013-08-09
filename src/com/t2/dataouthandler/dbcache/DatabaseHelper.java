@@ -53,17 +53,20 @@ public class DatabaseHelper
 
 	/**
 	 * Requests a list of DataOutPackets from the local cache
+	 *  This version returns all data types
+     *
 	 * @return - List of DataOutPackets in the local cache
 	 */
 	public ArrayList<DataOutPacket> getPacketList()	{
 		OpenHelper openHelper = new OpenHelper(this.context);
 		this.db = openHelper.getWritableDatabase();
 		Cursor cursor = null;
-		String query = "select PacketID, PacketSql, DrupalId, RecordId, CacheStatus, ChangedDate from PERSISTENTCACHE";
+		String query = "select PacketID, PacketSql, DrupalId, RecordId, CacheStatus, ChangedDate, StructureType from PERSISTENTCACHE";
+
+		ArrayList<DataOutPacket> packets = new ArrayList<DataOutPacket>();
 		try {
 			cursor = this.db.rawQuery(query, null);
 			if (cursor.moveToFirst()) {
-				ArrayList<DataOutPacket> packets = new ArrayList<DataOutPacket>();
 				do 	{
 					SqlPacket sqlPacket = new SqlPacket();
 					sqlPacket.setSqlPacketId(cursor.getString(0));
@@ -72,6 +75,7 @@ public class DatabaseHelper
 					sqlPacket.setRecordId(cursor.getString(3));
 					sqlPacket.setCacheStatus(cursor.getInt(4));
 					sqlPacket.setChangedDate(cursor.getString(5));
+					sqlPacket.setStructureType(cursor.getString(6));
 
 //					if (sqlPacket.getCacheStatus() != SqlPacket.CACHE_DELETING) {
 						if (true) {
@@ -81,7 +85,6 @@ public class DatabaseHelper
 						} catch (DataOutHandlerException e) {
 							e.printStackTrace();
 						}
-						
 					}
 				}
 				while (cursor.moveToNext());
@@ -96,16 +99,84 @@ public class DatabaseHelper
 			else {
 				cursor.close();
 				db.close();
-				return null;
+				return packets;
 			}
 		} catch (Exception e) {
-			if (e != null) {
-				Log.e("Exception", e.toString());
-				e.printStackTrace();
+			Log.e("Exception", e.toString());
+			e.printStackTrace();
+			return null;
+		}
+	}	
+
+	private String addQuotes(String string) {
+		return "\"" + string + "\"";
+	}	
+	
+	private String addSingleQuotes(String string) {
+		return "'" + string + "'";
+	}	
+	
+	
+	/**
+	 * Requests a list of DataOutPackets from the local cache
+	 * @param structureType - Structure types to filter on
+	 * @return - List of DataOutPackets in the local cache
+	 */
+	public ArrayList<DataOutPacket> getPacketList(List<String> structureTypes)	{
+		OpenHelper openHelper = new OpenHelper(this.context);
+		this.db = openHelper.getWritableDatabase();
+		Cursor cursor = null;
+		
+		String structureTypesString = "";
+		for (String type : structureTypes) {
+			structureTypesString += "'" + type + "',";
+		}
+		structureTypesString = structureTypesString.replaceAll("[,]$","");
+		
+		String query = "select PacketID, PacketSql, DrupalId, RecordId, CacheStatus, ChangedDate, StructureType from PERSISTENTCACHE " +
+				"			where StructureType in (" + structureTypesString + ")";
+
+		ArrayList<DataOutPacket> packets = new ArrayList<DataOutPacket>();
+		try {
+			cursor = this.db.rawQuery(query, null);
+			if (cursor.moveToFirst()) {
+				do 	{
+					SqlPacket sqlPacket = new SqlPacket();
+					sqlPacket.setSqlPacketId(cursor.getString(0));
+					sqlPacket.setPacket(cursor.getString(1));
+					sqlPacket.setDrupalId(cursor.getString(2));
+					sqlPacket.setRecordId(cursor.getString(3));
+					sqlPacket.setCacheStatus(cursor.getInt(4));
+					sqlPacket.setChangedDate(cursor.getString(5));
+					sqlPacket.setStructureType(cursor.getString(6));
+
+//					if (sqlPacket.getCacheStatus() != SqlPacket.CACHE_DELETING) {
+						if (true) {
+						try {
+							DataOutPacket packetDOP = new DataOutPacket(sqlPacket);
+							packets.add(packetDOP);
+						} catch (DataOutHandlerException e) {
+							e.printStackTrace();
+						}
+					}
+				}
+				while (cursor.moveToNext());
+
+				if (cursor != null && !cursor.isClosed()) {
+					cursor.close();
+				}
+
+				db.close();
+				return packets;
 			}
 			else {
-				Log.e("Unknown Exception", e.toString());
+				cursor.close();
+				db.close();
+				return packets;
 			}
+		} catch (Exception e) {
+			Log.e("Exception", e.toString());
+			e.printStackTrace();
 			return null;
 		}
 	}	
@@ -119,21 +190,23 @@ public class DatabaseHelper
 		this.db = openHelper.getWritableDatabase();
 		Cursor cursor = null;
 
-		String query = "select PacketID, PacketSql, DrupalId, RecordId, CacheStatus, ChangedDate from PERSISTENTCACHE";
+		String query = "select PacketID, PacketSql, DrupalId, RecordId, CacheStatus, ChangedDate, StructureType from PERSISTENTCACHE";
 		cursor = this.db.rawQuery(query, null);
 
 		if (cursor.moveToFirst()) {
 			List<SqlPacket> packets = new ArrayList<SqlPacket>();
 
 			do 	{
-				SqlPacket packet = new SqlPacket();
-				packet.setSqlPacketId(cursor.getString(0));
-				packet.setPacket(cursor.getString(1));
-				packet.setDrupalId(cursor.getString(2));
-				packet.setRecordId(cursor.getString(3));
-				packet.setCacheStatus(cursor.getInt(4));
-				packet.setChangedDate(cursor.getString(5));
-				packets.add(packet);
+				SqlPacket sqlPacket = new SqlPacket();
+				sqlPacket.setSqlPacketId(cursor.getString(0));
+				sqlPacket.setPacket(cursor.getString(1));
+				sqlPacket.setDrupalId(cursor.getString(2));
+				sqlPacket.setRecordId(cursor.getString(3));
+				sqlPacket.setCacheStatus(cursor.getInt(4));
+				sqlPacket.setChangedDate(cursor.getString(5));
+				sqlPacket.setStructureType(cursor.getString(6));
+
+				packets.add(sqlPacket);
 			}
 			while (cursor.moveToNext());
 
@@ -163,6 +236,7 @@ public class DatabaseHelper
 			insertValues.put("DrupalId", packet.getDrupalId());
 			insertValues.put("CacheStatus", packet.getCacheStatus());
 			insertValues.put("ChangedDate", packet.getChangedDate());
+			insertValues.put("StructureType", packet.getStructureType());
 			db.insert("PERSISTENTCACHE", null, insertValues);
 
 			return;
@@ -193,6 +267,7 @@ public class DatabaseHelper
 			updateValues.put("DrupalId", packet.getDrupalId());
 			updateValues.put("CacheStatus", packet.getCacheStatus());
 			updateValues.put("ChangedDate", packet.getChangedDate());
+			updateValues.put("StructureType",  packet.getStructureType());
 			retVal = db.update("PERSISTENTCACHE", updateValues, "PacketID = " + packet.getSqlPacketId(), null);
 
 			if (retVal != 1) {
@@ -249,40 +324,6 @@ public class DatabaseHelper
 		}		
 	}
 	
-	public void createNewSqlPacket(String packet, String recordId, String drupalId) {
-
-		OpenHelper openHelper = new OpenHelper(this.context);
-		this.db = openHelper.getWritableDatabase();
-
-		long changedDateLong;
-		String changedDate = "";
-		if (recordId.length() >= 13) {
-			changedDateLong = Long.parseLong(recordId.substring(0, 13));
-			SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-			changedDate = dateFormatter.format(changedDateLong);
-		}
-		
-		try	{
-			ContentValues insertValues = new ContentValues();
-			insertValues.put("PacketSql", packet);
-			insertValues.put("RecordId", recordId);
-			insertValues.put("DrupalId", drupalId);
-			insertValues.put("CacheStatus", GlobalH2.CACHE_IDLE);
-			insertValues.put("ChangedDate", changedDate);
-			
-			db.insert("PERSISTENTCACHE", null, insertValues);
-
-			return;
-		}
-		catch(Exception ex)	{
-			return;
-		}
-		finally	{
-			db.close();
-		}
-	}	
-	
-	
 	public SqlPacket getPacketByDrupalId(String drupalId)
 	{
 		SqlPacket outPacket = null;
@@ -290,7 +331,7 @@ public class DatabaseHelper
 		this.db = openHelper.getWritableDatabase();
 		Cursor cursor = null;
 
-		String query = "select PacketID, RecordId, DrupalID, PacketSql, ChangedDate from PERSISTENTCACHE where DrupalID = '" + drupalId + "'" ;
+		String query = "select PacketID, RecordId, DrupalID, PacketSql, ChangedDate, StructureType from PERSISTENTCACHE where DrupalID = '" + drupalId + "'" ;
 		cursor = this.db.rawQuery(query, null);
 
 		if (cursor.moveToFirst()) 
@@ -303,6 +344,7 @@ public class DatabaseHelper
 				outPacket.setDrupalId(cursor.getString(2));
 				outPacket.setPacket(cursor.getString(3));
 				outPacket.setChangedDate(cursor.getString(4));
+				outPacket.setStructureType(cursor.getString(5));
 				
 			}
 			while (cursor.moveToNext());
@@ -330,7 +372,7 @@ public class DatabaseHelper
 		this.db = openHelper.getWritableDatabase();
 		Cursor cursor = null;
 
-		String query = "select PacketID, RecordId, DrupalID, PacketSql, CacheStatus, ChangedDate from PERSISTENTCACHE where RecordId = '" + recordId + "'" ;
+		String query = "select PacketID, RecordId, DrupalID, PacketSql, CacheStatus, ChangedDate, StructureType from PERSISTENTCACHE where RecordId = '" + recordId + "'" ;
 		cursor = this.db.rawQuery(query, null);
 
 		if (cursor.moveToFirst()) 
@@ -344,7 +386,7 @@ public class DatabaseHelper
 				outPacket.setPacket(cursor.getString(3));
 				outPacket.setCacheStatus(cursor.getInt(4));
 				outPacket.setChangedDate(cursor.getString(5));
-				
+				outPacket.setStructureType(cursor.getString(6));
 			}
 			while (cursor.moveToNext());
 
@@ -379,7 +421,7 @@ public class DatabaseHelper
 		{	//TODO: DATABSE STRUCTURE MARKING
 
 			//PERSISTENTCACHE
-			String createPERSISTENTCACHE = "CREATE TABLE IF NOT EXISTS PERSISTENTCACHE (PacketID INTEGER PRIMARY KEY, RecordId TEXT, PacketSql TEXT, DrupalId TEXT, CacheStatus INTEGER, ChangedDate TEXT);";
+			String createPERSISTENTCACHE = "CREATE TABLE IF NOT EXISTS PERSISTENTCACHE (PacketID INTEGER PRIMARY KEY, RecordId TEXT, PacketSql TEXT, DrupalId TEXT, CacheStatus INTEGER, ChangedDate TEXT, StructureType TEXT);";
 			db.execSQL(createPERSISTENTCACHE);
 		}
 

@@ -118,9 +118,22 @@ public class DataOutHandlerTags {
 	public static final String PLATFORM_VERSION = "platform_version";
 	public static final String DRUPAL_NODE_ID = "drupal_nid";
 	public static final String STRUCTURE_TYPE = "structure_type";
+	public static final String STRUCTURE_TYPE_SENSOR_DATA = "sensor_data";
 
 	
 	
+	// Tags for H4H
+	public static final String STRUCTURE_TYPE_HABIT = "habit";
+	public static final String HABIT_NAME = "name";
+	public static final String HABIT_REMINDER_TIME = "reminder_time";
+	public static final String HABIT_NOTE = "habit_note";
+
+	public static final String STRUCTURE_TYPE_CHECKIN = "checkin";
+	public static final String CHECKIN_CHECKIN_TIME = "checkin_time";
+	public static final String CHECKIN_HABIT_ID = "habit_id";
+	
+	
+	// Tags for Pill Planner
 	public static final String USER_EMAIL = "user_email";
 	public static final String DRUG_NAME = "drug_name";
 	public static final String DRUG_FORM = "drug_form";
@@ -139,7 +152,7 @@ public class DataOutHandlerTags {
 	public static final String HOUR_OF_DAY = "HourOfDay";
 	public static final String MINUTE_OF_DAY = "MinuteOfDay";
 
-	public static final String NAME = "name";
+//	public static final String NAME = "name";
 	public static final String PASSWORD = "password";
 
 	

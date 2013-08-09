@@ -160,6 +160,18 @@ public class DbCache {
 		}
 	}
 	
+	/**
+	 * Requests a list of DataOutPackets from the local cache
+	 * @param structureTypes - List of types to filter on
+	 * @return - List of DataOutPackets in the local cache
+	 */
+	public ArrayList<DataOutPacket> getPacketList(List<String> structureTypes) {
+		synchronized(db) {
+			return db.getPacketList(structureTypes);
+		}
+	}
+	 
+	 
 	
 	public SqlPacket getPacketByRecordId(String recordId) {
 		synchronized(db) {

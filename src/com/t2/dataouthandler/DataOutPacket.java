@@ -238,6 +238,10 @@ public class DataOutPacket implements Serializable {
         String currentTimeString = dateFormatter.format(calendar.getTime());
     	mRecordId = mTimeStamp + "-" + uuid.toString();
 
+    	// If structure type not specified, then default to sensor data
+    	add(DataOutHandlerTags.STRUCTURE_TYPE, DataOutHandlerTags.STRUCTURE_TYPE_SENSOR_DATA);	    	
+    	mStructureType = DataOutHandlerTags.STRUCTURE_TYPE_SENSOR_DATA;
+    	
     	add(DataOutHandlerTags.RECORD_ID, mRecordId);
     	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
     	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
@@ -245,6 +249,23 @@ public class DataOutPacket implements Serializable {
     	add(DataOutHandlerTags.PLATFORM, "Android");		    	
     	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);	    	
 	}
+	
+	public DataOutPacket(String structureType) {
+    	UUID uuid = UUID.randomUUID();
+    	Calendar calendar = GregorianCalendar.getInstance();
+    	mTimeStamp = calendar.getTimeInMillis();
+    	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
+        String currentTimeString = dateFormatter.format(calendar.getTime());
+    	mRecordId = mTimeStamp + "-" + uuid.toString();
+    	mStructureType = structureType;
+    	add(DataOutHandlerTags.RECORD_ID, mRecordId);
+    	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
+    	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
+    	add(DataOutHandlerTags.CHANGED_AT, currentTimeString);
+    	add(DataOutHandlerTags.PLATFORM, "Android");		    	
+    	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);	    	
+    	add(DataOutHandlerTags.STRUCTURE_TYPE, structureType);	    	
+	}	
 	
 	public void add(String tag, float value) {
 		mItemsMap.put(tag.toLowerCase(), value);
