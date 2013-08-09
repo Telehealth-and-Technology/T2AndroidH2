@@ -55,7 +55,7 @@ public class DatabaseHelper
 	 * Requests a list of DataOutPackets from the local cache
 	 * @return - List of DataOutPackets in the local cache
 	 */
-	public ArrayList<DataOutPacket> getPacketListDOP()	{
+	public ArrayList<DataOutPacket> getPacketList()	{
 		OpenHelper openHelper = new OpenHelper(this.context);
 		this.db = openHelper.getWritableDatabase();
 		Cursor cursor = null;
@@ -114,7 +114,7 @@ public class DatabaseHelper
 	 * Requests a list of SqlPackets from the local cache
 	 * @return - List of SqlPackets in the local cache
 	 */
-	public List<SqlPacket> getPacketList()	{
+	public List<SqlPacket> getPacketListAsSqlPacket()	{
 		OpenHelper openHelper = new OpenHelper(this.context);
 		this.db = openHelper.getWritableDatabase();
 		Cursor cursor = null;

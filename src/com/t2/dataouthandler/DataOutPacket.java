@@ -100,7 +100,7 @@ public class DataOutPacket implements Serializable {
 		this.mSqlPacketId = sqlPacket.getSqlPacketId();
 		this.mChangedDate = sqlPacket.getChangedDate();
 		this.mCacheStatus = sqlPacket.getCacheStatus();
-		
+		this.mStructureType = sqlPacket.getStructureType();
 
 		
 		try {

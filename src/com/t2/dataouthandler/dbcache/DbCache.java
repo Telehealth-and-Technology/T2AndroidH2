@@ -118,7 +118,7 @@ public class DbCache {
 	
 	public List<String> getSqlIdList() {
         mCacheNodeIdList = new ArrayList<String>();
-        List<SqlPacket> packetList = db.getPacketList();
+        List<SqlPacket> packetList = db.getPacketListAsSqlPacket();
 		if (packetList != null) {
 			for (SqlPacket pkt : packetList) {
 				mCacheNodeIdList.add(pkt.getRecordId());
@@ -134,7 +134,7 @@ public class DbCache {
 	 */
 	public void updateDrupalIds(HashMap<String, String> mDrupalIdMap) {
         mCacheNodeIdList = new ArrayList<String>();
-        List<SqlPacket> packetList = db.getPacketList();
+        List<SqlPacket> packetList = db.getPacketListAsSqlPacket();
 		if (packetList != null) {
 			for (SqlPacket pkt : packetList) {
 				
@@ -151,9 +151,12 @@ public class DbCache {
 		
 	} // End updateDrupalIds() 
 	
-	public ArrayList<DataOutPacket> getPacketListDOP() {
+	/**
+	 * Requests a list of DataOutPackets from the local cache
+	 * @return - List of DataOutPackets in the local cache
+	 */	public ArrayList<DataOutPacket> getPacketList() {
 		synchronized(db) {
-			return db.getPacketListDOP();
+			return db.getPacketList();
 		}
 	}
 	

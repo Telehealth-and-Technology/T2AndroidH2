@@ -20,6 +20,7 @@ public class SqlPacket {
 	private String recordId = "";
 	private String drupalId = "";
 	private String changedDate = "";
+	private String structureType = "";
 
 	private int cacheStatus = GlobalH2.CACHE_IDLE;
 
@@ -45,6 +46,7 @@ public class SqlPacket {
 		packetJson = dataOutPacket.toString();
 		sqlPacketId = dataOutPacket.mSqlPacketId;
 		changedDate = dataOutPacket.mChangedDate;
+		structureType = dataOutPacket.mStructureType;
 		
 		String result = "";
 		
@@ -160,7 +162,7 @@ public class SqlPacket {
 	}
 
 	public String toString() {
-		return "cacheStatus: " + cacheStatus + " packetId: " + sqlPacketId + ", recordId: " + recordId + ", drupalId: " + drupalId + ", changedDate: " + changedDate + ", packet: " + packetJson;
+		return "structureType: " + structureType + "cacheStatus: " + cacheStatus + " packetId: " + sqlPacketId + ", recordId: " + recordId + ", drupalId: " + drupalId + ", changedDate: " + changedDate + ", packet: " + packetJson;
 	}
 
 	public String getChangedDate() {
@@ -169,6 +171,14 @@ public class SqlPacket {
 
 	public void setChangedDate(String changed_At) {
 		changedDate = changed_At;
+	}
+
+	public String getStructureType() {
+		return structureType;
+	}
+
+	public void setStructureType(String structureType) {
+		this.structureType = structureType;
 	}
 	
 	

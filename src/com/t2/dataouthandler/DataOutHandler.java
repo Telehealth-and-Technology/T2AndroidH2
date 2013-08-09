@@ -2077,10 +2077,19 @@ public class DataOutHandler  implements JREngageDelegate {
 	void updatemNodeDeleteQueue() {
 	}
 	
-	public ArrayList<DataOutPacket> getPacketListDOP() {
-		return mDbCache.getPacketListDOP();
+	/**
+	 * Updateds the cache records with drupakl node id's collected from the DB
+	 * @param mDrupalIdMap
+	 */
+	public ArrayList<DataOutPacket> getPacketList() {
+		return mDbCache.getPacketList();
 	}
 	
+	/**
+	 * Gets specific packet based on redcord id
+	 * @param recordId - record id to use in search
+	 * @return - Packet corresponding to record id
+	 */
 	public DataOutPacket getPacketByRecordId(String recordId) {
 		SqlPacket sqlPacket = mDbCache.getPacketByRecordId(recordId); 
 		DataOutPacket dataOutpacket;
