@@ -46,6 +46,13 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.util.Log;
 
+
+//**********************************************************
+// Note that this is out of date.
+// Please follow example in DataOutHandlerTest - Main.java
+//**********************************************************
+
+
 /**
  * @author scott.coleman
  * 

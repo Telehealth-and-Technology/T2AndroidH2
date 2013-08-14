@@ -116,7 +116,8 @@ public class DataOutHandler  implements JREngageDelegate {
 	private static final String DEFAULT_AWS_DB_URL 		= "h2tvm.elasticbeanstalk.com";
 	private static final String DEFAULT_DRUPAL_DB_URL 	= "http://t2health.us/h2/android/";
 	private static final String DEFAULT_DRUPAL_DB_URL_SSL = "https://t2health.us/h2/android/";
-    private static String ENGAGE_TOKEN_URL_SSL 			= "https://t2health.us/h2/rpx/token_handler?destination=node";	
+	
+	private static String ENGAGE_TOKEN_URL_SSL 			= "https://t2health.us/h2/rpx/token_handler?destination=node";	
     private static String ENGAGE_TOKEN_URL 				= "http://t2health.us/h2/rpx/token_handler?destination=node";	
 
 	// Database types. 
@@ -849,7 +850,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	}
 	
 	/**
-	 * Cancells authentication
+	 * Cancels authentication
 	 */
 	public void logOut() {
 		Log.d(TAG, "DataOuthandler Logging out");		
@@ -1073,7 +1074,7 @@ public class DataOutHandler  implements JREngageDelegate {
 					}
 				}
 
-				Log.d(TAG, "Http dispatch thread tick");
+				//Log.d(TAG, "Http dispatch thread tick");
 
 				// If the network is available post entries from the PendingQueue
 				if (isNetworkAvailable()) {
@@ -1507,15 +1508,39 @@ public class DataOutHandler  implements JREngageDelegate {
 		return result;
 	}
 	
-	// Rules for presence of drupal node id in the cache
-	// If synced from DB (added by another client):
-	//		drupal ID is present immediately
-	// If added from the UI
-	//		drupal id is blank until the first timed update (ProcessCacheThread()).
-	//		at which time the local DB entries are updated with drupal node id
-	
-	
-	// To be called from DispatchThread
+	/**
+	 * Processes the cache (updates the local cache and remote database to they are in sync)
+	 *  To be called from DispatchThread
+	 * 
+	 *  Here is the algorithm:
+	 *  1. Request a packet summary from Drupal
+	 *  	Update drupal ID's of all records in cache
+	 *  2. Check for records in local cache but not in remote DB
+	 *  	if Packet exists in Cache but not in remote DB
+	 *  		if Packet newly inserted by self 
+	 *  			Add (send) the packet to the remote DB
+	 *  		else (Packet deleted by other from remote DB) 
+	 *  			Remove the packet from the cache
+	 *  2. Check for records in remote DB but not in local cache
+	 *  	if Packet exists in remote DB but not in local Cache
+	 *  		if Packeted deleted by self
+	 *  			Delete packet from remote DB
+	 * 		else (Packet newly inserted by other into DB)
+	 * 				Add packet to local Cache	
+	 * 3. If records exist both in local cache and remote DB
+	 * 		if the remote DB record changed data is more recent
+	 * 			Update the local cache from the remote DB
+	 * 		else
+	 * 			Update the remote DB from the local cache
+	 * 
+	 * 
+	 * Rules for presence of drupal node id in the cache
+	 * If synched from DB (added by another client):
+	 *		drupal ID is present immediately
+	 * If added from the UI
+	 *		drupal id is blank until the first timed update (ProcessCacheThread()).
+	 *		at which time the local DB entries are updated with drupal node id	 * 
+	 */
 	private void ProcessCacheThread() {
 		
 		final ArrayList<String> mDrupalRecordIdList = new ArrayList<String>();			
@@ -1681,12 +1706,12 @@ public class DataOutHandler  implements JREngageDelegate {
 			 		// Now do record by record comparison between the records of the local database (mSqlRecordIdList)
 			 		// to the records of the remote database (mDrupalRecordIdList).
 			 		 
-			 		// Check for records in local but not in remote
+			 		// Check for records in local cache but not in remote DB
 		            for (String recordId : mSqlRecordIdList) {
 		            	if (!mDrupalRecordIdList.contains(recordId)) {
 		            		
 		            		if (VERBOSE_LOGGING) {
-			        	        Log.e(TAG, "recordId: " + recordId + " - Packet exists in Cache but not in DB");
+			        	        Log.e(TAG, "recordId: " + recordId + " - Packet exists in local Cache but not in remote DB");
 		            		}
 	
 		            		if (recordId == null) {
@@ -1695,8 +1720,8 @@ public class DataOutHandler  implements JREngageDelegate {
 		            		SqlPacket sqlPacket = mDbCache.getPacketByRecordId(recordId); // Since recordId is in mSqlRecordIdList we know this will not return null
 			            	// Exists in cache but not on on Drupal
 		        	        // Two possible cases here
-		        	        // 1 Packet newly inserted by self        -> Add (send) the packet to the DB
-		        	        // 2 Packet deleted by other from DB      -> Remove the packet from the cache
+		        	        // 1 Packet newly inserted by self        			-> Add (send) the packet to the remote DB
+		        	        // 2 Packet deleted by other from remote DB      	-> Remove the packet from the local cache
 	        	        	Boolean isSendingOrSend = (sqlPacket.getCacheStatus() == GlobalH2.CACHE_SENDING || 
 	        	        			sqlPacket.getCacheStatus() == GlobalH2.CACHE_SENT);
 			            	if (isSendingOrSend) {
@@ -1704,7 +1729,7 @@ public class DataOutHandler  implements JREngageDelegate {
 				            	// Packet exists in cache but not on on Drupal
 			            		// Case 1 - Packet newly inserted by self        -> Add (send) the packet to the DB
 			            		if (VERBOSE_LOGGING) {
-			            			Log.e(TAG, "Case 1 - Send the packet to DB");
+			            			Log.e(TAG, "Case 1 - Send the packet to remoteDB");
 			            		}
 	
 		        	        	// Don't send the packet if already sending!
@@ -1739,9 +1764,9 @@ public class DataOutHandler  implements JREngageDelegate {
 							}
 			            else {
 			            		// Packet exists in cache but not on on Drupal
-			            		// Case 2 - Packet deleted by other from DB      -> Remove the packet from the cache
+			            		// Case 2 - Packet deleted by other from remote DB      -> Remove the packet from the local cache
 		            			if (VERBOSE_LOGGING) {
-		            				Log.e(TAG, "Case 2 - Remove the packet from the cache");
+		            				Log.e(TAG, "Case 2 - Remove the packet from the loal cache");
 		            			}
 			            		mDbCache.deletePacketFromCache(sqlPacket);
 	
@@ -1812,20 +1837,20 @@ public class DataOutHandler  implements JREngageDelegate {
 		            	}
 		        	 }	  // end for (String id : mSqlIdList) 	
 	 
-		             // Check for records in remote but not in local
+		             // Check for records in remote DB but not in local cache
 		             for (String drupalRecordId : mDrupalRecordIdList) {
 		            	 
 		            	 if (!mSqlRecordIdList.contains(drupalRecordId)) {
 		            		 //SqlPacket sqlPacket = mDbCache.getPacketByRecordId(drupalRecordId); // Can't do this if not in CACHE!!!!!!
 		            		 
 			            		if (VERBOSE_LOGGING) {
-			            			Log.e(TAG, "recordId: " + drupalRecordId + " - Packet exists in DB but not in Cache");
+			            			Log.e(TAG, "recordId: " + drupalRecordId + " - Packet exists in remote DB but not in local Cache");
 			            		}
 	
-		        	          // Packet exists in DB but not in Cache
+		        	          // Packet exists in remote DB but not in local Cache
 		        	          // Two possible cases here:
-			        	      // 3 Packeted deleted by self                -> Delete packet from DB
-		        	          // 4 Packet newly inserted by other into DB  -> Add packet to Cache
+			        	      // 3 Packeted deleted by self                			-> Delete packet from  remoteDB
+		        	          // 4 Packet newly inserted by other into remote DB  	-> Add packet to local Cache
 	
 		        	          //Log.e(TAG, "mNodeDeleteQueue = " + mNodeDeleteQueue.toString());
 		        	          
@@ -1839,10 +1864,10 @@ public class DataOutHandler  implements JREngageDelegate {
 		        	          // Determine which of the cases we have here
 		        	          if (listContainsId) {
 
-		        	        	  // Packet exists in DB but not in Cache
-		        	        	  // Case 3 - Packeted deleted by self                -> Delete packet from DB
+		        	        	  // Packet exists in remote DB but not in local Cache
+		        	        	  // Case 3 - Packeted deleted by self                -> Delete packet from remote DB
 		        	        	  if (VERBOSE_LOGGING) {
-		        	        		  Log.e(TAG, "Case 3 - Delete packet from DB");
+		        	        		  Log.e(TAG, "Case 3 - Delete packet from remote DB");
 		        	        	  }
 			        	          // Get the drupal id for this record id
 			        	          String drupalId = mRecordIdToDrupalIdMap.get(drupalRecordId);
@@ -1854,7 +1879,7 @@ public class DataOutHandler  implements JREngageDelegate {
 			        	          // Packet exists in DB but not in Cache
 		        	        	  // Case 4 - Packet newly inserted by other into DB  -> Add packet to Cache
 		        	        	  if (VERBOSE_LOGGING) {
-		        	        		  Log.e(TAG, "Case 4 - Add packet to cache");
+		        	        		  Log.e(TAG, "Case 4 - Add packet to local cache");
 		        	        	  }
 			        	          String drupalId = mRecordIdToDrupalIdMap.get(drupalRecordId);
 			        	          addPacketToCacheSync(drupalId, "C");	// Grabs the packet from Drupal and adds it to the Cache        	          
