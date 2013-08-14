@@ -129,26 +129,28 @@ public class DbCache {
 	
 
 	/**
-	 * Updateds the cache records with drupakl node id's collected from the DB
+	 * Updates the cache records with Drupal node id's collected from the DB
 	 * @param mDrupalIdMap
 	 */
 	public void updateDrupalIds(HashMap<String, String> mDrupalIdMap) {
-        mCacheNodeIdList = new ArrayList<String>();
-        List<SqlPacket> packetList = db.getPacketListAsSqlPacket();
-		if (packetList != null) {
-			for (SqlPacket pkt : packetList) {
-				
-				String drupalNid = mDrupalIdMap.get(pkt.getRecordId());
-				//Log.e(TAG, "Checking record: " + pkt.getRecordId() + " with drupal node id: " + drupalNid);
-				if (drupalNid != null && pkt.getDrupalId() == "") {
-					Log.e(TAG, "Updating cache record: " + pkt.getRecordId() + " with drupal node id: " + drupalNid);
-					pkt.setDrupalId(drupalNid);
-					db.updateSqlPacket(pkt);
-					
-				}
-			}
-		}		
 		
+		synchronized(db) {		
+	        mCacheNodeIdList = new ArrayList<String>();
+	        List<SqlPacket> packetList = db.getPacketListAsSqlPacket();
+			if (packetList != null) {
+				for (SqlPacket pkt : packetList) {
+					
+					String drupalNid = mDrupalIdMap.get(pkt.getRecordId());
+					//Log.e(TAG, "Checking record: " + pkt.getRecordId() + " with drupal node id: " + drupalNid);
+					if (drupalNid != null && pkt.getDrupalId() == "") {
+						Log.e(TAG, "Updating cache record: " + pkt.getRecordId() + " with drupal node id: " + drupalNid);
+						pkt.setDrupalId(drupalNid);
+						db.updateSqlPacket(pkt);
+						
+					}
+				}
+			}		
+		}
 	} // End updateDrupalIds() 
 	
 	/**

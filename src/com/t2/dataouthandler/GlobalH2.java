@@ -15,6 +15,19 @@ public class GlobalH2 {
 		DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN};
 	
 	
+	// A valid record id (title) looks like this:
+	// 1376345039840-4f34d60c-aa58-45fb-9da4-0aea6459dedc
+	// TimeStamp-GUID
+	public static boolean isValidRecordId(String recordId) {
+		
+		if (recordId == null)
+				return false;
+		
+		if (recordId.length()  >= 14 && recordId.charAt(13) == '-') 
+			return true;
+		else
+			return false;
+	}
 	
 }
 

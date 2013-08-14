@@ -61,25 +61,25 @@ public class DataOutPacket implements Serializable {
     private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 
     // Official Record Fields
-	// Primary record properties
+
+    // Primary keys
 	public String mRecordId;
 	public long mTimeStamp;
-
-	
-	// Additional record properties
-	public HashMap<String, Object> mItemsMap = new HashMap<String, Object>();
-
-	// Private record properties
 	public String mSqlPacketId;		// This is the SQLite row number
 	public String mChangedDate;		//
-	public String mLoggingString;
-	public String mQueuedAction = "C";		// Assume all actions are Create unless specifically set otherwise
-	
-	// Drupal prime properties (Native to drupal)
+	public String mTitle; // Same as mRecordId
 	public String mDrupalNid;		// This is assigned by Drupal ("NID")
 	public String mStructureType;
 	public String mFieldLanguage;
-	public String mTitle; // Same as mRecordId
+
+	
+	// Additional record properties (Secondary keys)
+	public HashMap<String, Object> mItemsMap = new HashMap<String, Object>();
+
+	// Private record properties
+	public String mLoggingString;
+	public String mQueuedAction = "C";		// Assume all actions are Create unless specifically set otherwise
+	
 	
 	public int mCacheStatus = GlobalH2.CACHE_IDLE;	
 	
@@ -147,6 +147,28 @@ public class DataOutPacket implements Serializable {
 
 	/**
 	 * Construct a DataOutPacket from a JSON string (supplied by Drupal)
+	 *  A drupal object contains a number of primary and secondary keys
+	 *  The primary keys are in the first tier of the hierarchy and set 
+	 *  members of the dataOutPacket directly
+	 *  e.g. "nid": "1211" Sets mDrupalNid
+	 *  
+	 *  Secondary keys are encapsulated in a further hierarchy and are
+	 *  distinguished by having  "field_" prepended to them. These secondary
+	 *  keys go into the mItemsMap member of the dataOutPacket
+	 *  
+	 *  e.g. 
+	 *   "field_platform": {
+     *   	"und": [
+     *       	{
+     *          	"value": "Android Modified 8/12/2013 9:08 AM",
+     *           	"format": null,
+     *           	"safe_value": "Android Modified 8/12/2013 9:08 AM"
+     *       	}
+     *   	]
+     *   },
+	 *  
+	 *  
+	 *  
 	 * @param drupalObject
 	 * @throws DataOutHandlerException 
 	 */
@@ -158,20 +180,30 @@ public class DataOutPacket implements Serializable {
 			// A valid record MUST have a record_id
 			String recordId;
 			try {
-				recordId = drupalObject.getString("field_record_id");
-				if (recordId == null || recordId.length() < 13) {			// Cheap trick to see if record is is good
+				recordId = drupalObject.getString("title");
+				if (!GlobalH2.isValidRecordId(recordId)) {			// Cheap trick to see if record is is good
     				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
     		}			
 			} catch (JSONException e2) {
 				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
 			}
 			
+			// Check for and add primary keys
 			try {
 				mDrupalNid = drupalObject.getString("nid");
 				add(DataOutHandlerTags.DRUPAL_NODE_ID, mDrupalNid);
 			} catch (JSONException e1) {
 				e1.printStackTrace();
 			}
+			try {
+				mStructureType = drupalObject.getString("type");
+				add(DataOutHandlerTags.STRUCTURE_TYPE, mStructureType);
+			} catch (JSONException e1) {
+				e1.printStackTrace();
+			}			
+			
+			
+			// Now parse the secondary keys
 			
 		   Iterator<String> iter = drupalObject.keys();
 		    while (iter.hasNext()) {
@@ -212,12 +244,14 @@ public class DataOutPacket implements Serializable {
 				            		// Make sure we have a valid record (Record_id must be greater than 13 characteers
 						            add(itemKey,itemValue);
 				            		if (itemKey.equalsIgnoreCase("record_id")) {
-				            			mRecordId = itemValue;
 				            			
-				            			if (itemValue.length() >= 13)
+				            			if (GlobalH2.isValidRecordId(itemValue)) {
+					            			mRecordId = itemValue;
 				            				mTimeStamp = Long.parseLong(itemValue.substring(0, 13));
-				            			else
+				            			}
+				            			else {
 				            				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
+				            			}
 				            		}
 			            		}
 			            	}
@@ -230,6 +264,10 @@ public class DataOutPacket implements Serializable {
 	//	    Log.d(TAG, "Conversion OK");		    
 	}	
 	
+	/**
+	 * Create a DataOutPacket
+	 *  By default it's a STRUCTURE_TYPE_SENSOR_DATA structure
+	 */
 	public DataOutPacket() {
     	UUID uuid = UUID.randomUUID();
     	Calendar calendar = GregorianCalendar.getInstance();
@@ -237,7 +275,9 @@ public class DataOutPacket implements Serializable {
     	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         String currentTimeString = dateFormatter.format(calendar.getTime());
     	mRecordId = mTimeStamp + "-" + uuid.toString();
-
+    	mChangedDate = currentTimeString;
+    	
+    	
     	// If structure type not specified, then default to sensor data
     	add(DataOutHandlerTags.STRUCTURE_TYPE, DataOutHandlerTags.STRUCTURE_TYPE_SENSOR_DATA);	    	
     	mStructureType = DataOutHandlerTags.STRUCTURE_TYPE_SENSOR_DATA;
@@ -250,6 +290,10 @@ public class DataOutPacket implements Serializable {
     	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);	    	
 	}
 	
+	/**
+	 * Create a DataOutPacket
+	 * @param structureType - Structure type of packet to create (e.g. Create a STRUCTURE_TYPE_SENSOR_DATA)
+	 */
 	public DataOutPacket(String structureType) {
     	UUID uuid = UUID.randomUUID();
     	Calendar calendar = GregorianCalendar.getInstance();
@@ -257,6 +301,7 @@ public class DataOutPacket implements Serializable {
     	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         String currentTimeString = dateFormatter.format(calendar.getTime());
     	mRecordId = mTimeStamp + "-" + uuid.toString();
+    	mChangedDate = currentTimeString;
     	mStructureType = structureType;
     	add(DataOutHandlerTags.RECORD_ID, mRecordId);
     	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
