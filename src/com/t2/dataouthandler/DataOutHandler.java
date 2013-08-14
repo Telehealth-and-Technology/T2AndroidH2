@@ -96,32 +96,37 @@ import com.t2.drupalsdk.UserServices;
  * Handles interface to external databases.
  * Also initializes Authentication services (JanRain)
  * 
- * 
- * 
- * 
  * @author scott.coleman
  *
  */
 public class DataOutHandler  implements JREngageDelegate {
 					
 	private final String TAG = getClass().getName();	
-	//private static final String DEFAULT_REST_DB_URL = "http://gap.t2health.org/and/phpWebservice/webservice2.php";	 
-	// private static final String DEFAULT_REST_DB_URL = "http://gap.t2health.org/and/json.php";	 
-	private static final String DEFAULT_REST_DB_URL = "http://ec2-50-112-197-66.us-west-2.compute.amazonaws.com/mongo/json.php";
-	private static final String DEFAULT_AWS_DB_URL = "h2tvm.elasticbeanstalk.com";
-//	private static final String DEFAULT_DRUPAL_DB_URL = "https://t2health.us/h2/android/";
-	private static final String DEFAULT_DRUPAL_DB_URL = "http://t2health.us/h2/android/";
-    private static String ENGAGE_TOKEN_URL = "http://t2health.us/h2/rpx/token_handler?destination=node";	
+	//private static final String DEFAULT_REST_DB_URL 	= "http://gap.t2health.org/and/phpWebservice/webservice2.php";	 
+	// private static final String DEFAULT_REST_DB_URL 	= "http://gap.t2health.org/and/json.php";	 
+	private static final String DEFAULT_REST_DB_URL 	= "http://ec2-50-112-197-66.us-west-2.compute.amazonaws.com/mongo/json.php";
+	private static final String DEFAULT_AWS_DB_URL 		= "h2tvm.elasticbeanstalk.com";
+	private static final String DEFAULT_DRUPAL_DB_URL 	= "http://t2health.us/h2/android/";
 	private static final String DEFAULT_DRUPAL_DB_URL_SSL = "https://t2health.us/h2/android/";
-    private static String ENGAGE_TOKEN_URL_SSL = "https://t2health.us/h2/rpx/token_handler?destination=node";	
-	
+    private static String ENGAGE_TOKEN_URL_SSL 			= "https://t2health.us/h2/rpx/token_handler?destination=node";	
+    private static String ENGAGE_TOKEN_URL 				= "http://t2health.us/h2/rpx/token_handler?destination=node";	
+
+	// Database types. 
+	//		Note that different database types
+	// 		may need different processing and even 
+	//		different structures, thus is it important to
+	//		use DataOutPacket structure to add data
+	public final static int DATABASE_TYPE_AWS = 0;			//	AWS (Goes to AWS DynamoDB)
+	public final static int DATABASE_TYPE_T2_REST = 1; 		// T2 Rest server (goes to Mongo DB)
+	public final static int DATABASE_TYPE_T2_DRUPAL = 2; 	//	T2 Drupal - goes to a Drupal database
+	public final static int DATABASE_TYPE_NONE = -1;
+    
 	private static final boolean AWS_USE_SSL = false;
 	private static final boolean DRUPAL_USE_SSL = false;
 
 	private static final boolean VERBOSE_LOGGING = true;
 	
     private static String ENGAGE_APP_ID = "khekfggiembncbadmddh";
-//    private static String ENGAGE_TOKEN_URL = "http://t2health.us/h2/rpx/token_handler?destination=node";	
 
 	private static final int LOG_FORMAT_JSON = 1;	
 	private static final int LOG_FORMAT_FLAT = 2;	
@@ -133,24 +138,23 @@ public class DataOutHandler  implements JREngageDelegate {
 	public static final String DATA_TYPE_EXTERNAL_SENSOR = "ExternalSensor";
 	public static final String DATA_TYPE_USER_ENTERED_DATA = "UserEnteredData";
 	
-	//public static final int SYNC_TIMEOUT = 20000;
 	public static final int SYNC_TIMEOUT = 200000;
+
+	public boolean mLogCatEnabled = false;	
+	public boolean mLoggingEnabled = false;	
+	private boolean mDatabaseEnabled = false;
+	private boolean mSessionIdEnabled = false;
 	
+	/**
+	 * Progress dialog used for traditional authentication
+	 */
 	private ProgressDialog mProgressDialog;
 
 	/// Object tokens for Synchronizing calls to certain routines
     Object addPacketToCacheSyncToken = new Object();	
     Object updateCacheSyncToken = new Object();	
     Object sendPacketToRemoteDbToken = new Object();	
-        
 	
-	public boolean mLogCatEnabled = false;	
-	public boolean mLoggingEnabled = false;	
-	private boolean mDatabaseEnabled = false;
-	private boolean mSessionIdEnabled = false;
-	
-	private String mResult;
-
 	/**
 	 * Selects whether or not to show a traditional login alongside Janrain Social logins.
 	 * 
@@ -162,7 +166,6 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * Signifies that user was logged in using traditional login (not janrain)
 	 */
 	private boolean mLoggedInAsTraditional = false;
-	
 	
 	/**
 	 * User identification to be associated with data stored
@@ -214,9 +217,6 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * Thread used to communicate messages in background to server
 	 */
 	private DispatchThread mDispatchThread = null;	
-	
-	
-    public static SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 	
 	/**
 	 * Application version info determined by the package manager
@@ -279,17 +279,6 @@ public class DataOutHandler  implements JREngageDelegate {
 	 */
 	public static AmazonClientManager sClientManager = null;		
 
-	// Database types. 
-	//		Note that different database types
-	// 		may need different processing and even 
-	//		different structures, thus is it important to
-	//		use DataOutPacket structure to add data
-	//	
-	public final static int DATABASE_TYPE_AWS = 0;			//	AWS (Goes to AWS DynamoDB)
-	public final static int DATABASE_TYPE_T2_REST = 1; 		// T2 Rest server (goes to Mongo DB)
-	public final static int DATABASE_TYPE_T2_DRUPAL = 2; 	//	T2 Drupal - goes to a Drupal database
-	public final static int DATABASE_TYPE_NONE = -1;
-	
 	/**
 	 * sets which type of external database is setup and used
 	 */
@@ -309,7 +298,6 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * Static instance of this class
 	 */
 	private static DataOutHandler sDataOutHandler;	
-	
 	
 	/**
 	 * Session cookie Janrain Obtains from Drupal for active session
@@ -342,12 +330,10 @@ public class DataOutHandler  implements JREngageDelegate {
 	 */
 	private DataOutHandler mInstance;
 	
-	
 	/**
 	 * Listener for database cache events (Updates, etc)
 	 */
 	private DatabaseCacheUpdateListener mDatabaseUpdateListener;
-	
 	
 	/**
 	 * Sets the database listener
@@ -374,7 +360,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * @param appName - Application name
 	 * @param dataType - data type to store
 	 * @param sessionId - Session Id
-	 * @return
+	 * @return Static instance of dataOutHandler
 	 */
 	public synchronized static DataOutHandler getInstance(Context context, String userId, String sessionDate, String appName, String dataType, long sessionId) {
 		if (sDataOutHandler == null) {
@@ -384,6 +370,12 @@ public class DataOutHandler  implements JREngageDelegate {
 		return sDataOutHandler;
 	}
 	
+	/**
+	 * Retrieves a static instance of DataOutHandler
+	 * 
+	 * @return Static instance of dataOutHandler
+	 * @throws DataOutHandlerException
+	 */
 	public static DataOutHandler getInstance() throws DataOutHandlerException {
 		if (sDataOutHandler == null) {
 			throw new DataOutHandlerException("DataOutHandler has not been initialized");
@@ -694,7 +686,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		else {
 			if (mAllowTraditionalLogin) {
 				GUIHelper.showEnterUserAndPassword(mContext, "", new LoginResult() {
-
+					
 					@Override
 					public void result(boolean res, String username, String password) {
 						Log.d(TAG, "username/password = " + username + " / " + password);
@@ -846,13 +838,8 @@ public class DataOutHandler  implements JREngageDelegate {
 		mAuthenticated = false;
 		drupalSessionCookie = null;
 		
-// If we delete the cookie here, traditional logout will fail		
-//		if (mCookieStore != null) {
-//			mCookieStore.clear();
-//	        mServicesClient.setCookieStore(mCookieStore);   
-//		}
+		// If we delete the cookie here, traditional logout will fail - so don't delete it!	
 	}
-	
 	
 	/**
 	 *  Enables logging to external log file of entries sent to the database
@@ -894,7 +881,6 @@ public class DataOutHandler  implements JREngageDelegate {
 	public void enableLogCat() {
 		mLogCatEnabled = true;
 	}	
-	
 	
 	/**
 	 * Purges and closes the current log file.
@@ -953,8 +939,6 @@ public class DataOutHandler  implements JREngageDelegate {
 			throw new DataOutHandlerException("Data packet is null");
 		}
 		
-		
-		
 		if (mDatabaseEnabled) {
 			dataOutPacket.mQueuedAction = "C";
 			Log.d(TAG, "Queueing document " + dataOutPacket.mRecordId);
@@ -996,13 +980,10 @@ public class DataOutHandler  implements JREngageDelegate {
 			
 	    	// Update the changed date
 			Calendar calendar = GregorianCalendar.getInstance();
+		    SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 	    	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
 	        String currentTimeString = dateFormatter.format(calendar.getTime());
 	        sqlPacketNew.setChangedDate(currentTimeString);
-			
-			
-			
-			
 			
 			int retVal = mDbCache.updateSqlPacket(sqlPacketNew);	
 			Log.d(TAG, "Updated: retVal = " + retVal + " record id = " + dataOutPacket.mRecordId);
@@ -1166,9 +1147,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		}
 	} // End DispatchThread
 	
-	
-
-	
     /**
      * @return true if network is available
      */
@@ -1321,12 +1299,11 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * database entry in Drupal
 	 * 
 	 * @param dataOutPacket - packet to create Drupal string for
-	 * @return
+	 * @return JSON formattted data string for Drupa consumption
 	 */
 	private String createDrupalPacketString(DataOutPacket dataOutPacket) {
 		ObjectNode item = JsonNodeFactory.instance.objectNode();
 		item.put("title", dataOutPacket.mRecordId);
-//		item.put("type", "sensor_data");
 		item.put("type", dataOutPacket.mStructureType);
 		item.put("language", "und");										
 
@@ -1653,13 +1630,13 @@ public class DataOutHandler  implements JREngageDelegate {
 		     		 				 Time changedAtTime = new Time();
 		     		 				 
 		     		 				 Date changedAtDate = new Date(lChangedAt);
+		     		 			     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 		     		 				 dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));		     		 				 
 			     		 			 String changedAtTimeString = dateFormatter.format(changedAtDate);		
 //		            				 if (VERBOSE_LOGGING) {
 //			            				 Log.e(TAG, "setting RecordId/changed " + recordId + " =  " + drupalTime);
 //			            				 Log.e(TAG, "setting RecordId/changed " + recordId + " =  " + changedAtTimeString);
 //		            				 }		     
-			     		 			 
 			     		 			 
 		     		 				 sqlPacket.setChangedDate(changedAtTimeString);
 									 mDbCache.updateSqlPacket(sqlPacket);
@@ -1787,8 +1764,7 @@ public class DataOutHandler  implements JREngageDelegate {
 										else {
 											if (lDrupalChangedAt > lLocalChangedAt) {
 												Log.e(TAG, "RemoteTime is most recent - updating cache from remote");
-	//											updateRecord()		
-							        	          addPacketToCacheSync(mRecordIdToDrupalIdMap.get(recordId), "U");	// Grabs the packet from Drupal and updates it in the Cache        	          
+							        	        addPacketToCacheSync(mRecordIdToDrupalIdMap.get(recordId), "U");	// Grabs the packet from Drupal and updates it in the Cache        	          
 												
 												
 											}
@@ -1811,8 +1787,6 @@ public class DataOutHandler  implements JREngageDelegate {
 								Log.e(TAG, e.toString());
 								e.printStackTrace();
 							}		            		
-		            		
-		            		
 		            	}
 		        	 }	  // end for (String id : mSqlIdList) 	
 	 
@@ -1865,10 +1839,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		        	          }
 		            	 }
 		             } // End  for (String drupalRecordId : mDrupalRecordIdList)
-
-		             
-		             
-		             
 	             }
                 try {
             		if (VERBOSE_LOGGING) {
@@ -1913,8 +1883,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		if (mDatabaseUpdateListener != null) {
     		mDatabaseUpdateListener.remoteDatabaseSyncComplete(mRecordIdToDrupalIdMap);
     	}	        		
-		
-		
 	}
 
     /**
@@ -2009,7 +1977,6 @@ public class DataOutHandler  implements JREngageDelegate {
 			@Override
 			public void onSuccess(JSONArray arg0) {
                 Log.d(TAG, "Successfully submitted ARRAY (Deleted record from drupal)" + arg0.toString());
-//                removePacketFromRemoteDrupalPacketCache();  
                 updatemNodeDeleteQueue();
 			}
             
@@ -2017,7 +1984,7 @@ public class DataOutHandler  implements JREngageDelegate {
             public void onFailure(Throwable e, JSONObject response) {
                 Log.e(TAG, e.toString() + recordId);
                 
-//need to set flag so this gets set to idle                
+                //need to set flag so this gets set to idle                
             	if (mDatabaseUpdateListener != null) {
             		mDatabaseUpdateListener.remoteDatabaseFailure(e.toString());
             	}	                 
@@ -2084,7 +2051,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		}
     }    	
     
-    
     /**
      * Retrieves the contents of the updated packet from Drupal and  updates the Cache
      * 
@@ -2124,8 +2090,6 @@ public class DataOutHandler  implements JREngageDelegate {
 					else {
 						updateRecord(dataOutPacket);
 					}
-					
-							
                 	
     				// TODO: calling this too often slows down the UI
                 	if (mDatabaseUpdateListener != null) {
@@ -2157,7 +2121,6 @@ public class DataOutHandler  implements JREngageDelegate {
             	if (mDatabaseUpdateListener != null) {
             		mDatabaseUpdateListener.remoteDatabaseFailure(arg0.toString());
             	}	                
-                
 			}
 
 			@Override
@@ -2235,7 +2198,4 @@ public class DataOutHandler  implements JREngageDelegate {
 			return null;
 		}
 	}
-	
-	
-	
 }
