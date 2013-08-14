@@ -1,30 +1,35 @@
-/* T2AndroidLib-SG for Signal Processing
- * 
- * Copyright © 2009-2013 United States Government as represented by 
- * the Chief Information Officer of the National Center for Telehealth 
- * and Technology. All Rights Reserved.
- * 
- * Copyright © 2009-2013 Contributors. All Rights Reserved. 
- * 
- * THIS OPEN SOURCE AGREEMENT ("AGREEMENT") DEFINES THE RIGHTS OF USE, 
- * REPRODUCTION, DISTRIBUTION, MODIFICATION AND REDISTRIBUTION OF CERTAIN 
- * COMPUTER SOFTWARE ORIGINALLY RELEASED BY THE UNITED STATES GOVERNMENT 
- * AS REPRESENTED BY THE GOVERNMENT AGENCY LISTED BELOW ("GOVERNMENT AGENCY"). 
- * THE UNITED STATES GOVERNMENT, AS REPRESENTED BY GOVERNMENT AGENCY, IS AN 
- * INTENDED THIRD-PARTY BENEFICIARY OF ALL SUBSEQUENT DISTRIBUTIONS OR 
- * REDISTRIBUTIONS OF THE SUBJECT SOFTWARE. ANYONE WHO USES, REPRODUCES, 
- * DISTRIBUTES, MODIFIES OR REDISTRIBUTES THE SUBJECT SOFTWARE, AS DEFINED 
- * HEREIN, OR ANY PART THEREOF, IS, BY THAT ACTION, ACCEPTING IN FULL THE 
- * RESPONSIBILITIES AND OBLIGATIONS CONTAINED IN THIS AGREEMENT.
- * 
- * Government Agency: The National Center for Telehealth and Technology
- * Government Agency Original Software Designation: T2AndroidLib1021
- * Government Agency Original Software Title: T2AndroidLib for Signal Processing
- * User Registration Requested. Please send email 
- * with your contact information to: robert.kayl2@us.army.mil
- * Government Agency Point of Contact for Original Software: robert.kayl2@us.army.mil
- * 
- */
+/*****************************************************************
+DataOutHandler
+
+Copyright (C) 2011-2013 The National Center for Telehealth and 
+Technology
+
+Eclipse Public License 1.0 (EPL-1.0)
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the Eclipse Public License as
+published by the Free Software Foundation, version 1.0 of the 
+License.
+
+The Eclipse Public License is a reciprocal license, under 
+Section 3. REQUIREMENTS iv) states that source code for the 
+Program is available from such Contributor, and informs licensees 
+how to obtain it in a reasonable manner on or through a medium 
+customarily used for software exchange.
+
+Post your updates and modifications to our GitHub or email to 
+t2@tee2.org.
+
+This library is distributed WITHOUT ANY WARRANTY; without 
+the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+PARTICULAR PURPOSE.  See the Eclipse Public License 1.0 (EPL-1.0)
+for more details.
+ 
+You should have received a copy of the Eclipse Public License
+along with this library; if not, 
+visit http://www.opensource.org/licenses/EPL-1.0
+
+*****************************************************************/
 package com.t2.dataouthandler;
 
 import java.text.SimpleDateFormat;
@@ -57,6 +62,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
@@ -101,7 +107,9 @@ import com.t2.drupalsdk.UserServices;
  */
 public class DataOutHandler  implements JREngageDelegate {
 					
-	private final String TAG = getClass().getName();	
+	private static final String TAG = DataOutHandler.class.getName();
+	private static final String VERSION_STRING = "2.0.0";
+	
 	//private static final String DEFAULT_REST_DB_URL 	= "http://gap.t2health.org/and/phpWebservice/webservice2.php";	 
 	// private static final String DEFAULT_REST_DB_URL 	= "http://gap.t2health.org/and/json.php";	 
 	private static final String DEFAULT_REST_DB_URL 	= "http://ec2-50-112-197-66.us-west-2.compute.amazonaws.com/mongo/json.php";
@@ -145,16 +153,20 @@ public class DataOutHandler  implements JREngageDelegate {
 	private boolean mDatabaseEnabled = false;
 	private boolean mSessionIdEnabled = false;
 	
+	
+	
 	/**
 	 * Progress dialog used for traditional authentication
 	 */
 	private ProgressDialog mProgressDialog;
 
 	/// Object tokens for Synchronizing calls to certain routines
-    Object addPacketToCacheSyncToken = new Object();	
-    Object updateCacheSyncToken = new Object();	
-    Object sendPacketToRemoteDbToken = new Object();	
+	private Object addPacketToCacheSyncToken = new Object();	
+	private Object updateCacheSyncToken = new Object();	
+	private Object sendPacketToRemoteDbToken = new Object();	
 	
+    
+    
 	/**
 	 * Selects whether or not to show a traditional login alongside Janrain Social logins.
 	 * 
@@ -352,6 +364,14 @@ public class DataOutHandler  implements JREngageDelegate {
 	}	
 	
 	/**
+	 * Returns version of this package
+	 * @return
+	 */
+	public static String getVersion() {
+		return VERSION_STRING;
+	}
+	
+	/**
 	 * Retrieves a static instance of DataOutHandler
 	 * 
 	 * @param context - Android context of calling party
@@ -366,7 +386,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		if (sDataOutHandler == null) {
 			sDataOutHandler = new DataOutHandler(context, userId, sessionDate, appName, dataType, sessionId);
 		}
-		
+
 		return sDataOutHandler;
 	}
 	
@@ -561,6 +581,8 @@ public class DataOutHandler  implements JREngageDelegate {
 		else {
 			mEngageTokenUrl = ENGAGE_TOKEN_URL;			
 		}
+		
+		
 		
 		// Based on database type:
 		// 	Set up mRemoteDatabase based on either remoteDatabase if it's not blank,
