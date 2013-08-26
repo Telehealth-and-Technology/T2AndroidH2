@@ -76,6 +76,10 @@ public class ServicesClient {
     	mAsyncHttpClient.addHeader("X_CSRF_TOKEN", cSRFToken);
     }
     
+    public void setTimeout(int timeout) {
+    	mAsyncHttpClient.setTimeout(timeout);
+    }
+    
     public ServicesClient(String server, String base) {
         this.mUrlString = server + '/' + base + '/';
         mAsyncHttpClient.setTimeout(60000);

@@ -754,10 +754,10 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * @param t2AuthDelegate	t2AuthDelegate Callbacks to send status to.	
 	 * @throws DataOutHandlerException
 	 */
-	public void initializeDatabase(String remoteDatabase, int mDatabaseType, 
+	public void initializeDatabase(String remoteDatabase, int databaseType, 
 			T2AuthDelegate t2AuthDelegate) throws DataOutHandlerException, MalformedURLException {
 		
-		mDatabaseType = mDatabaseType;
+		mDatabaseType = databaseType;
 		mT2AuthDelegate = t2AuthDelegate;		
 
 		if (remoteDatabase == null) {
@@ -841,6 +841,7 @@ public class DataOutHandler  implements JREngageDelegate {
 						
 						if (res) {
 							traditionalLogin(username, password);
+							
 						}
 						else {
 							// Causes Janrain to initiate login activity by showing login dialog
@@ -861,6 +862,8 @@ public class DataOutHandler  implements JREngageDelegate {
 		}		
 	}
 	
+
+	 
 	/**
 	 * @deprecated use {@link #logIn(final Activity thisActivity)}
 	 * Displays authentication dialog and takes the user through
@@ -914,14 +917,20 @@ public class DataOutHandler  implements JREngageDelegate {
         UserServices us;		
         us = new UserServices(mServicesClient);
         Log.d(TAG, "mServicesClient = " + mServicesClient);
-        mProgressDialog = ProgressDialog.show(mContext, "", "Logging you in", true, false);
 
+        mProgressDialog = ProgressDialog.show(mContext, "", "Logging you in", true, false);
+        
+        
         us.Login(username, password, new AsyncHttpResponseHandler() {
             @Override
             public void onSuccess(String response) {
             	Log.d(TAG, "response = " + response);
             	mLoggedInAsTraditional = true;
             	mAuthenticated = true;
+
+                mProgressDialog.hide();
+                mProgressDialog.dismiss();
+            	
             	
             	List<Cookie> list = new ArrayList<Cookie>();
             	list = mInstance.mCookieStore.getCookies();
@@ -944,7 +953,6 @@ public class DataOutHandler  implements JREngageDelegate {
     			}
             	
             	
-                new AlertDialog.Builder(mContext).setMessage("Login was successful.").setPositiveButton("OK", null).setCancelable(true).create().show();
             }
 
             @Override
@@ -989,12 +997,17 @@ public class DataOutHandler  implements JREngageDelegate {
 	            	Log.d(TAG, "response = " + response);
 	            	mLoggedInAsTraditional = false;
 	            	mAuthenticated = false;
+	                mProgressDialog.hide();
+	                mProgressDialog.dismiss();
+	            	
 	                new AlertDialog.Builder(mContext).setMessage("Logout was successful.").setPositiveButton("OK", null).setCancelable(true).create().show();
 	            }
 
 	            @Override
 	            public void onFailure(Throwable e, String response) {
 	                Log.e(TAG, e.toString());
+	                mProgressDialog.hide();
+	                mProgressDialog.dismiss();
 	                new AlertDialog.Builder(mContext).setMessage("Logout failed.").setPositiveButton("OK", null).setCancelable(true).create().show();
 	            }
 
@@ -2182,6 +2195,74 @@ public class DataOutHandler  implements JREngageDelegate {
 		
 	}
 	
+	public class MyAsyncHttpResponseHandler extends JsonHttpResponseHandler {
+
+	    private DataOutPacket mDataoutPacket;
+
+	    public MyAsyncHttpResponseHandler(DataOutPacket dataoutPacket) {
+	    	mDataoutPacket = dataoutPacket;
+	    }
+
+	    @Override
+	    public void onSuccess(String arg0)
+	    {
+	        super.onSuccess(arg0);
+	        // Use requestId here
+	    }
+
+		@Override
+		public void onFailure(Throwable arg0, JSONArray arg1) {
+            Log.e(TAG, arg0.toString());
+        	if (mDatabaseUpdateListener != null) {
+        		mDatabaseUpdateListener.remoteDatabaseFailure(arg0.toString());
+        	}
+			super.onFailure(arg0, arg1);
+		}
+
+		@Override
+		public void onFailure(Throwable e, JSONObject response) {
+ //           Log.e(TAG, e.toString() + recordId);
+            
+            //need to set flag so this gets set to idle                
+        	if (mDatabaseUpdateListener != null) {
+        		mDatabaseUpdateListener.remoteDatabaseFailure(e.toString());
+        	}		
+
+			super.onFailure(e, response);
+		}
+
+		@Override
+		public void onSuccess(JSONArray arg0) {
+	        Log.d(TAG, "Successfully submitted ARRAY (Deleted record from drupal)" + arg0.toString());
+	        updatemNodeDeleteQueue();	
+			super.onSuccess(arg0);
+		}
+
+		@Override
+		public void onSuccess(JSONObject arg0) {
+            String nid;
+			try {
+				nid = arg0.getString("nid");
+	            Log.d(TAG, "Myroutine - Successfully submitted article # " + nid);		
+	            
+	            // We can't set the cache to sent yet since it's not been associated with
+                // a drupal id yet. That comes with the first Drupal node summary list 
+                // returned from Drupal. We do this processing in ProcessCache()
+	            mDrupalIdsSuccessfullyAdded.add(nid);     	            
+	            
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			// TODO Auto-generated method stub
+			super.onSuccess(arg0);
+		}
+		
+	    
+	    
+	}	
+	
+	
     /**
      * Synchronous version of sendPacketToRemoteDbSync.
      * Doesn't return until HTTP transaction is either complete or has timed out.
@@ -2253,49 +2334,49 @@ public class DataOutHandler  implements JREngageDelegate {
         
         us = new UserServices(mServicesClient);
 
-        JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
+        MyAsyncHttpResponseHandler responseHandler = new MyAsyncHttpResponseHandler(dataOutPacket) {
             
         	// We get here for Create or Update operations
-        	@Override
-            public void onSuccess(JSONObject response) {
-                try {
-                    String nid = response.getString("nid");
-                    Log.d(TAG, "Successfully submitted article # " + nid);
-                    
-                    // We can't set the cache to sent yet since it's not been associated with
-                    // a drupal id yet. That comes with the first Drupal node summary list 
-                    // returned from Drupal. We do this processing in ProcessCache()
-                    mDrupalIdsSuccessfullyAdded.add(nid);                    
-	 				
-                } catch (JSONException e) {
-                    Log.e(TAG, e.toString());
-                }
-            }
+//        	@Override
+//            public void onSuccess(JSONObject response) {
+//                try {
+//                    String nid = response.getString("nid");
+//                    Log.d(TAG, "Successfully submitted article # " + nid);
+//                    
+//                    // We can't set the cache to sent yet since it's not been associated with
+//                    // a drupal id yet. That comes with the first Drupal node summary list 
+//                    // returned from Drupal. We do this processing in ProcessCache()
+//                    mDrupalIdsSuccessfullyAdded.add(nid);                    
+//	 				
+//                } catch (JSONException e) {
+//                    Log.e(TAG, e.toString());
+//                }
+//            }
 
-        	// We get here for Delete operations
-			@Override
-			public void onSuccess(JSONArray arg0) {
-                Log.d(TAG, "Successfully submitted ARRAY (Deleted record from drupal)" + arg0.toString());
-                updatemNodeDeleteQueue();
-			}
+//        	// We get here for Delete operations
+//			@Override
+//			public void onSuccess(JSONArray arg0) {
+//                Log.d(TAG, "Successfully submitted ARRAY (Deleted record from drupal)" + arg0.toString());
+//                updatemNodeDeleteQueue();
+//			}
             
-            @Override
-            public void onFailure(Throwable e, JSONObject response) {
-                Log.e(TAG, e.toString() + recordId);
-                
-                //need to set flag so this gets set to idle                
-            	if (mDatabaseUpdateListener != null) {
-            		mDatabaseUpdateListener.remoteDatabaseFailure(e.toString());
-            	}	                 
-            }
+//            @Override
+//            public void onFailure(Throwable e, JSONObject response) {
+//                Log.e(TAG, e.toString() + recordId);
+//                
+//                //need to set flag so this gets set to idle                
+//            	if (mDatabaseUpdateListener != null) {
+//            		mDatabaseUpdateListener.remoteDatabaseFailure(e.toString());
+//            	}	                 
+//            }
             
-            @Override
-			public void onFailure(Throwable arg0, JSONArray arg1) {
-                Log.e(TAG, arg0.toString());
-            	if (mDatabaseUpdateListener != null) {
-            		mDatabaseUpdateListener.remoteDatabaseFailure(arg0.toString());
-            	}	                 
-			}
+//            @Override
+//			public void onFailure(Throwable arg0, JSONArray arg1) {
+//                Log.e(TAG, arg0.toString());
+//            	if (mDatabaseUpdateListener != null) {
+//            		mDatabaseUpdateListener.remoteDatabaseFailure(arg0.toString());
+//            	}	                 
+//			}
 
 			@Override
             public void onFinish() {
