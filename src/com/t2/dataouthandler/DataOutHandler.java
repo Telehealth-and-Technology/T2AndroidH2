@@ -32,6 +32,8 @@ visit http://www.opensource.org/licenses/EPL-1.0
 *****************************************************************/
 package com.t2.dataouthandler;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -108,18 +110,24 @@ import com.t2.drupalsdk.UserServices;
 public class DataOutHandler  implements JREngageDelegate {
 					
 	private static final String TAG = DataOutHandler.class.getName();
-	private static final String VERSION_STRING = "2.0.0";
+	private static final String VERSION_STRING = "2.1.0";
 	
 	//private static final String DEFAULT_REST_DB_URL 	= "http://gap.t2health.org/and/phpWebservice/webservice2.php";	 
 	// private static final String DEFAULT_REST_DB_URL 	= "http://gap.t2health.org/and/json.php";	 
 	private static final String DEFAULT_REST_DB_URL 	= "http://ec2-50-112-197-66.us-west-2.compute.amazonaws.com/mongo/json.php";
 	private static final String DEFAULT_AWS_DB_URL 		= "h2tvm.elasticbeanstalk.com";
-	private static final String DEFAULT_DRUPAL_DB_URL 	= "http://t2health.us/h2/android/";
-	private static final String DEFAULT_DRUPAL_DB_URL_SSL = "https://t2health.us/h2/android/";
-	
-	private static String ENGAGE_TOKEN_URL_SSL 			= "https://t2health.us/h2/rpx/token_handler?destination=node";	
-    private static String ENGAGE_TOKEN_URL 				= "http://t2health.us/h2/rpx/token_handler?destination=node";	
 
+	private static final String DEFAULT_DRUPAL_DB_URL 	= "http://t2health.us/h2/android/";
+//	private static final String DEFAULT_DRUPAL_DB_URL 	= "http://t2health.us/h4hnew/api/";
+
+    private String fred = "{    \"type\": \"check_in\",    \"habit_id\": \"23\",    \"uid\": \"44\",    \"title\": \"new checkin blah blah blah 2dsfsdf nid 99 unset\",    \"log\": \"\",    \"status\": \"1\",    \"comment\": \"2\",    \"promote\": \"0\",    \"sticky\": \"0\",    \"type\": \"check_in\",    \"language\": \"und\",    \"created\": \"1376957648\",    \"changed\": \"1376957648\",    \"tnid\": \"0\",    \"translate\": \"0\",    \"revision_timestamp\": \"1376957648\",    \"revision_uid\": \"44\",    \"body\": {        \"und\": [{            \"value\": \"\",            \"summary\": \"\",            \"format\": \"filtered_html\",            \"safe_value\": \"\",            \"safe_summary\": \"\"        }]    },    \"field_checkin_time\": {\"und\": [ { \"value\": { \"date\": \"2013-08-20 13:31\"} } ] }}";
+
+    private static final int INDEX_DRUPAL_SERVICE = 1;
+    private static final int INDEX_DRUPAL_REST_ENDPOINT = 2;
+    private static final int MIN_PARAMETERS = 3;
+    
+    
+    
 	// Database types. 
 	//		Note that different database types
 	// 		may need different processing and even 
@@ -130,8 +138,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	public final static int DATABASE_TYPE_T2_DRUPAL = 2; 	//	T2 Drupal - goes to a Drupal database
 	public final static int DATABASE_TYPE_NONE = -1;
     
-	private static final boolean AWS_USE_SSL = false;
-	private static final boolean DRUPAL_USE_SSL = false;
+	private static final boolean USE_SSL = false;
 
 	private static final boolean VERBOSE_LOGGING = true;
 	
@@ -153,8 +160,13 @@ public class DataOutHandler  implements JREngageDelegate {
 	public boolean mLoggingEnabled = false;	
 	private boolean mDatabaseEnabled = false;
 	private boolean mSessionIdEnabled = false;
+
+	private boolean mRequiresCSRF = false;
+	private String mCSRFToken = "";
 	
-	
+	public void setRequiresCSRF(boolean requiresCSRF) {
+		mRequiresCSRF = requiresCSRF;
+	}
 	
 	/**
 	 * Progress dialog used for traditional authentication
@@ -244,7 +256,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	/**
 	 * Token URL used for Janrain/Drupal integration
 	 */
-	String mEngageTokenUrl = ENGAGE_TOKEN_URL;
+	String mEngageTokenUrl = "";
 	
 	/**
 	 * Engage instance for openID authentication
@@ -508,8 +520,9 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * @param databaseType Type of database (AWS, TRest, T2Drupal, etc.).
 	 * @param t2AuthDelegate Callbacks to send status to.
 	 * @throws DataOutHandlerException
+	 * @throws MalformedURLException 
 	 */
-	public void initializeDatabase(String remoteDatabase, String databaseType) throws DataOutHandlerException {
+	public void initializeDatabase(String remoteDatabase, String databaseType) throws DataOutHandlerException, MalformedURLException {
 		mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
 		// Do it this way for backward compatibility
 		mSharedPreferences.edit().putString("external_database_type", databaseType);
@@ -523,8 +536,9 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * @param databaseType Type of database (AWS, TRest, T2Drupal, etc.).
 	 * @param t2AuthDelegate Callbacks to send status to.
 	 * @throws DataOutHandlerException
+	 * @throws MalformedURLException 
 	 */
-	public void initializeDatabase(String remoteDatabase, String databaseType, T2AuthDelegate t2AuthDelegate) throws DataOutHandlerException {
+	public void initializeDatabase(String remoteDatabase, String databaseType, T2AuthDelegate t2AuthDelegate) throws DataOutHandlerException, MalformedURLException {
 		mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
 		// Do it this way for backward compatibility
 		mSharedPreferences.edit().putString("external_database_type", databaseType);
@@ -538,9 +552,10 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * @param t2AuthDelegate Callbacks to send status to.
 	 * @param awsTableName AWS table name to use when putting data.
 	 * @throws DataOutHandlerException
+	 * @throws MalformedURLException 
 	 */
 	public void initializeDatabase(String remoteDatabase, String databaseType, 
-			T2AuthDelegate t2AuthDelegate, String awsTableName) throws DataOutHandlerException {
+			T2AuthDelegate t2AuthDelegate, String awsTableName) throws DataOutHandlerException, MalformedURLException {
 		mAwsTableName = awsTableName;
 		mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
 		// Do it this way for backward compatibility
@@ -563,8 +578,9 @@ public class DataOutHandler  implements JREngageDelegate {
 	 * @param viewName			N/AView associated with database
 	 * @param remoteDatabase	Name of external database
 	 * @throws DataOutHandlerException 
+	 * @throws MalformedURLException 
 	 */
-	public void initializeDatabase(String databaseName, String designDocName, String designDocId, String viewName, String remoteDatabase) throws DataOutHandlerException {
+	public void initializeDatabase(String databaseName, String designDocName, String designDocId, String viewName, String remoteDatabase) throws DataOutHandlerException, MalformedURLException {
 
 		mDatabaseEnabled = true;
 
@@ -574,16 +590,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		// Get chosen database from preferences
 		mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
 		String databaseTypeString = mSharedPreferences.getString("external_database_type", "AWS");
-
-		
-		if (DRUPAL_USE_SSL) {
-			mEngageTokenUrl = ENGAGE_TOKEN_URL_SSL;			
-		}
-		else {
-			mEngageTokenUrl = ENGAGE_TOKEN_URL;			
-		}
-		
-		
 		
 		// Based on database type:
 		// 	Set up mRemoteDatabase based on either remoteDatabase if it's not blank,
@@ -647,39 +653,40 @@ public class DataOutHandler  implements JREngageDelegate {
 			Log.d(TAG, "Using T2 Drupal Database type");
 
 			mDatabaseType = DATABASE_TYPE_T2_DRUPAL;
-			if (remoteDatabase != null ) {
-				if (remoteDatabase.equalsIgnoreCase("")) {
-					if (DRUPAL_USE_SSL) {
-						mRemoteDatabase = DEFAULT_DRUPAL_DB_URL_SSL;			
-					}
-					else {
-						mRemoteDatabase = DEFAULT_DRUPAL_DB_URL;			
-					}
-				}
-				else {
-					mRemoteDatabase = remoteDatabase;
-				}
-				
-		        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
-		        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
-		        // As odd as it seems, this ensures that only one delegate gets added per instance.
-		        mEngage.removeDelegate(this);
-		        mEngage.addDelegate(this);
-		        
-		        JREngage.blockOnInitialization();
+			
+			
+			initializeDrupalDatabaseNames(remoteDatabase);				
 
-		        mServicesClient = new ServicesClient(mRemoteDatabase);
-		        mCookieStore = new PersistentCookieStore(mContext);
-		        mCookieStore.clear(); // Make sure to start fresh
-		        mServicesClient.setCookieStore(mCookieStore);
-		        
-				try {
-					mDbCache = new DbCache(mRemoteDatabase, mContext, mDatabaseUpdateListener);
-				} catch (Exception e) {
-					Log.e(TAG, e.toString());
-					e.printStackTrace();
-				}
-			}			
+			
+	        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
+	        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
+	        // As odd as it seems, this ensures that only one delegate gets added per instance.
+	        mEngage.removeDelegate(this);
+	        mEngage.addDelegate(this);
+	        
+	        JREngage.blockOnInitialization();
+
+	        try {
+				mServicesClient = new ServicesClient(mRemoteDatabase);
+			} catch (MalformedURLException e1) {
+				Log.e(TAG, e1.toString());
+				e1.printStackTrace();
+			} catch (DataOutHandlerException e1) {
+				Log.e(TAG, e1.toString());
+				e1.printStackTrace();
+			}
+	        
+	        
+	        mCookieStore = new PersistentCookieStore(mContext);
+	        mCookieStore.clear(); // Make sure to start fresh
+	        mServicesClient.setCookieStore(mCookieStore);
+	        
+			try {
+				mDbCache = new DbCache(mRemoteDatabase, mContext, mDatabaseUpdateListener);
+			} catch (Exception e) {
+				Log.e(TAG, e.toString());
+				e.printStackTrace();
+			}
 		}
 		
 		// Make sure a valid database was selected
@@ -694,7 +701,125 @@ public class DataOutHandler  implements JREngageDelegate {
 		mDispatchThread = new DispatchThread();
 
 		mDispatchThread.start();		
-	}			
+	}	
+	
+	/**
+	 * Formats mRemoteDatabase, and mEngageTokenUrl with proper database names (with defaults if blank)
+	 * @param remoteDatabase Remote database name
+	 * @throws DataOutHandlerException
+	 * @throws MalformedURLException
+	 */
+	void initializeDrupalDatabaseNames(String remoteDatabase) throws DataOutHandlerException, MalformedURLException {
+		if (remoteDatabase.equalsIgnoreCase("")) {
+			remoteDatabase = DEFAULT_DRUPAL_DB_URL;			
+		}
+
+		URL url = new URL(remoteDatabase);
+        
+        String protocol = url.getProtocol();
+        String host = url.getHost();
+        String path = url.getPath();
+        String[] pathTokens = path.split("/");
+        String drupalRestEndpoint = "";
+        String drupalService = "";
+        
+        if (pathTokens.length == MIN_PARAMETERS) {
+            drupalService = pathTokens[INDEX_DRUPAL_SERVICE];        	
+            drupalRestEndpoint = pathTokens[INDEX_DRUPAL_REST_ENDPOINT];
+        }
+        else {
+			throw new DataOutHandlerException("Remote database URL incorrectly formatted - "
+					+ "must include Drupal service and Drupal Rest Endpoint");        
+		}
+
+		if (USE_SSL) {
+			mRemoteDatabase = "https://" + host + "/" + drupalService + "/" + drupalRestEndpoint;
+			mEngageTokenUrl = "https://" + host + "/" + drupalService + "/rpx/token_handler?destination=node";
+		}
+		else {
+			mRemoteDatabase = "http://" + host + "/" + drupalService + "/" + drupalRestEndpoint;
+			mEngageTokenUrl = "http://" + host + "/" + drupalService + "/rpx/token_handler?destination=node";
+		}
+			
+	}
+
+
+	/**
+	 * Initializes the current database
+	 * 
+	 *   All new users should use this entry point for initializing the database
+	 * 
+	 * @param remoteDatabase 	Name of remote database (URI) to use
+	 * @param mDatabaseType		Database type (integer) (See DATABASE_TYPE_xxx)
+	 * @param t2AuthDelegate	t2AuthDelegate Callbacks to send status to.	
+	 * @throws DataOutHandlerException
+	 */
+	public void initializeDatabase(String remoteDatabase, int mDatabaseType, 
+			T2AuthDelegate t2AuthDelegate) throws DataOutHandlerException, MalformedURLException {
+		
+		mDatabaseType = mDatabaseType;
+		mT2AuthDelegate = t2AuthDelegate;		
+
+		if (remoteDatabase == null) {
+			throw new DataOutHandlerException("remoteDatabase must not be null");
+		}
+		
+		// Make sure a valid database was selected
+		if (mDatabaseType != this.DATABASE_TYPE_T2_DRUPAL) {
+			throw new DataOutHandlerException("Database type invalid or not supported at this time");
+		}
+		// TODO: re-add support for T2Rest and AWS
+		
+		
+		initializeDrupalDatabaseNames(remoteDatabase);		
+		
+				
+        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
+        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
+        // As odd as it seems, this ensures that only one delegate gets added per instance.
+        mEngage.removeDelegate(this);
+        mEngage.addDelegate(this);
+        
+        JREngage.blockOnInitialization();
+
+        try {
+			mServicesClient = new ServicesClient(mRemoteDatabase);
+		} catch (MalformedURLException e1) {
+			Log.e(TAG, e1.toString());
+			e1.printStackTrace();
+		} catch (DataOutHandlerException e1) {
+			Log.e(TAG, e1.toString());
+			e1.printStackTrace();
+		}
+        
+        mCookieStore = new PersistentCookieStore(mContext);
+        mCookieStore.clear(); // Make sure to start fresh
+        mServicesClient.setCookieStore(mCookieStore);
+        
+		try {
+			mDbCache = new DbCache(mRemoteDatabase, mContext, mDatabaseUpdateListener);
+		} catch (Exception e) {
+			Log.e(TAG, e.toString());
+			e.printStackTrace();
+			throw new DataOutHandlerException("Can't instantiate Cache");
+		}	
+
+		mDatabaseEnabled = true;
+		
+		
+		// Now do any global database (ot other)  initialization
+		Log.d(TAG, "Initializing T2 database dispatcher");
+		Log.d(TAG, "Remote database name = " + mRemoteDatabase);
+
+		mDispatchThread = new DispatchThread();
+
+		mDispatchThread.start();				
+		
+		
+		
+	}	
+	
+	
 	
 	/**
 	 * Displays authentication dialog and takes the user through
@@ -797,17 +922,49 @@ public class DataOutHandler  implements JREngageDelegate {
             	Log.d(TAG, "response = " + response);
             	mLoggedInAsTraditional = true;
             	mAuthenticated = true;
+            	
+            	List<Cookie> list = new ArrayList<Cookie>();
+            	list = mInstance.mCookieStore.getCookies();
+            	Log.e(TAG, "CSRFSessionLookie = " + list.get(0).toString());
+
+            	
+            	// TODO: move this to accomodate Janrain
+            	if (mRequiresCSRF) {
+            		if (VERBOSE_LOGGING) {
+            			Log.e(TAG, "Requesting CSRF Token");
+            		}
+            		getCSRFToken();            		
+            	}
+            	
+            	mAuthProvider = "Traditional";
+            	mAuth_info = new JRDictionary();
+            	
+    			if (mT2AuthDelegate != null) {
+    				mT2AuthDelegate.T2AuthSuccess(mAuth_info, mAuthProvider, null, null);
+    			}
+            	
+            	
                 new AlertDialog.Builder(mContext).setMessage("Login was successful.").setPositiveButton("OK", null).setCancelable(true).create().show();
             }
 
             @Override
             public void onFailure(Throwable e, String response) {
                 Log.e(TAG, e.toString());
-                new AlertDialog.Builder(mContext).setMessage("Login failed: " + e.toString()).setPositiveButton("OK", null).setCancelable(true).create().show();
+                mProgressDialog.hide();
+                mProgressDialog.dismiss();
+                
+            	mAuthProvider = "Traditional";
+            	JREngageError error = new JREngageError(response, JREngageError.AuthenticationError.AUTHENTICATION_FAILED, 
+            			JREngageError.ErrorType.AUTHENTICATION_FAILED);
+            	
+    			if (mT2AuthDelegate != null) {
+    				mT2AuthDelegate.T2AuthFail(error, mAuthProvider);
+    			}                
             }
 
             @Override
             public void onFinish() {
+                Log.e(TAG, "traditionalLogin onFinish()");
                 mProgressDialog.hide();
                 mProgressDialog.dismiss();
             }
@@ -1375,6 +1532,58 @@ public class DataOutHandler  implements JREngageDelegate {
 		return item.toString();
 	}
 	
+	private String createDrupalPacketStringVh4h(DataOutPacket dataOutPacket) {
+		ObjectNode item = JsonNodeFactory.instance.objectNode();
+		item.put("title", dataOutPacket.mRecordId);
+		item.put("type", dataOutPacket.mStructureType);
+		item.put("language", "und");										
+
+		Iterator it = dataOutPacket.mItemsMap.entrySet().iterator();
+		while (it.hasNext()) {
+			Map.Entry pairs = (Map.Entry)it.next();	
+	        if (pairs.getValue() instanceof Integer) {
+	        	putDrupalNode((String)pairs.getKey(), (Integer)pairs.getValue(), item);								        	
+	        	dataOutPacket.mLoggingString += formatTextForLog(mDatabaseType, pairs);
+	        }
+	        if (pairs.getValue() instanceof String) {
+	        	putDrupalNode((String)pairs.getKey(), (String)pairs.getValue(), item);								        	
+	        	dataOutPacket.mLoggingString += formatTextForLog(mDatabaseType, pairs);
+	        }
+	        if (pairs.getValue() instanceof Long) {
+	        	putDrupalNode((String)pairs.getKey(), (Long)pairs.getValue(), item);								        	
+	        	dataOutPacket.mLoggingString += formatTextForLog(mDatabaseType, pairs);
+	        }
+	        if (pairs.getValue() instanceof Double) {
+	        	putDrupalNode((String)pairs.getKey(), (Double)pairs.getValue(), item);								        	
+	        	dataOutPacket.mLoggingString += formatTextForLog(mDatabaseType, pairs);
+	        }
+	        if (pairs.getValue() instanceof Float) {
+	        	putDrupalNode((String)pairs.getKey(), (Float)pairs.getValue(), item);								        	
+	        	dataOutPacket.mLoggingString += formatTextForLog(mDatabaseType, pairs);
+	        }
+	        if (pairs.getValue() instanceof Vector) {
+				// Note special format for vector in drupal!
+				String newTag = "field_" + ((String) pairs.getKey()).toLowerCase();
+				ObjectNode undNode = JsonNodeFactory.instance.objectNode();		
+				ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();		
+
+	        	// TODO: Potential problem - saves all of the vector items as type STRING
+				for (Object v : (Vector) pairs.getValue()) {
+					ObjectNode valueNode = JsonNodeFactory.instance.objectNode();		
+					valueNode.put("value", v.toString());
+					arrayNode.add(valueNode);	
+				}
+				
+				undNode.put("und", arrayNode);			
+				item.put(newTag, undNode);									        	
+				dataOutPacket.mLoggingString += formatTextForLog(mDatabaseType, pairs);
+	        }										
+			
+		} // End while (it.hasNext())
+		return item.toString();
+	}	
+	
+	
 	/**
 	 * Writes Drupal formatted node to specified node (String)
 	 * 
@@ -1932,6 +2141,47 @@ public class DataOutHandler  implements JREngageDelegate {
     	}	        		
 	}
 
+	
+	/**
+	 * Requests a CSRF token from the Drupal server
+	 *  This token is then send to the Services client to include as a header
+	 *  Note that this is only required in newer Drupal Services installations
+	 */
+	void getCSRFToken() {
+        UserServices us;
+        int nodeNum = 0;
+        us = new UserServices(mServicesClient);    	
+
+        AsyncHttpResponseHandler responseHandler = new AsyncHttpResponseHandler() {
+
+
+			@Override
+			public void onSuccess(String arg0) {
+				super.onSuccess(arg0);
+                Log.e(TAG, "getCSRFToken() SUCCESS: " + arg0);
+                mCSRFToken = arg0;                
+                mServicesClient.setCSRFToken(arg0);
+				
+			}
+            
+            @Override
+            public void onFailure(Throwable e, String response) {
+                Log.e(TAG, "getCSRFToken() FAILED: " + response);
+                Log.e(TAG, e.toString());
+            }
+            
+			@Override
+            public void onFinish() {
+                Log.e(TAG, "getCSRFToken() OnFinish()");
+            }
+        };     
+        
+
+        us.RequestCSRFToken(responseHandler);
+		
+		
+	}
+	
     /**
      * Synchronous version of sendPacketToRemoteDbSync.
      * Doesn't return until HTTP transaction is either complete or has timed out.
@@ -1972,7 +2222,9 @@ public class DataOutHandler  implements JREngageDelegate {
         if (dataOutPacket != null) {
 
             Log.d(TAG, "sendPacketToRemoteDb(" + dataOutPacket.mRecordId + ")");
-            jsonString = createDrupalPacketString(dataOutPacket);        
+            jsonString = createDrupalPacketString(dataOutPacket);
+            
+//            jsonString = fred;
             recordId = dataOutPacket.mRecordId;
         }
         else {

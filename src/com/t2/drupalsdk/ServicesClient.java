@@ -38,6 +38,7 @@ import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.AsyncHttpResponseHandler;
 import com.loopj.android.http.PersistentCookieStore;
 import com.loopj.android.http.RequestParams;
+import com.t2.dataouthandler.DataOutHandlerException;
 
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.protocol.ClientContext;
@@ -50,6 +51,8 @@ import org.apache.http.protocol.HttpContext;
 import org.json.JSONObject;
 
 import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
 
 public class ServicesClient {
@@ -57,15 +60,48 @@ public class ServicesClient {
 	private static final String TAG = ServicesClient.class.getSimpleName();		
 
     private String mUrlString;
+    private String mDrupalService;
+    public String mDrupalRestEndpoint;
+    private String mProtocol;
+    private String mHost;
+    
+    private static final int INDEX_DRUPAL_SERVICE = 3;
+    private static final int INDEX_DRUPAL_REST_ENDPOINT = 4;
+    private static final int MIN_PARAMETERS = 5 ;
+    
+    
     public static AsyncHttpClient mAsyncHttpClient = new AsyncHttpClient();
 
+    public void setCSRFToken(String cSRFToken) {
+    	mAsyncHttpClient.addHeader("X_CSRF_TOKEN", cSRFToken);
+    }
+    
     public ServicesClient(String server, String base) {
         this.mUrlString = server + '/' + base + '/';
         mAsyncHttpClient.setTimeout(60000);
     }
 
-    public ServicesClient(String urlString) {
+    public ServicesClient(String urlString) throws DataOutHandlerException, MalformedURLException {
+    	
+    	if (urlString == null || urlString == "") {
+			throw new DataOutHandlerException("Remote database URL must not be null or blank");
+    	}
+        // Break down the remote URL string into constituant parts
+        String[] tokens = urlString.split("/");        
+
+        if (tokens.length < MIN_PARAMETERS) {
+			throw new DataOutHandlerException("Remote database URL incorrectly formatted - "
+					+ "must include Drupal service and Drupal Rest Endpoint");
+        }
+        this.mDrupalRestEndpoint = tokens[INDEX_DRUPAL_REST_ENDPOINT];
+        this.mDrupalService = tokens[INDEX_DRUPAL_SERVICE];
         this.mUrlString = urlString;
+
+        URL url = new URL(urlString);        
+        
+        mProtocol = url.getProtocol();
+        mHost = url.getHost();
+        
         mAsyncHttpClient.setTimeout(60000);
     }
 
@@ -74,7 +110,9 @@ public class ServicesClient {
     }
 
     private String getAbsoluteUrl(String relativeUrl) {
-        return this.mUrlString + relativeUrl;
+//        return this.mUrlString + relativeUrl;
+    	return mProtocol + "://" + mHost + "/" + mDrupalService + "/" + relativeUrl;
+        
     }
 
     public void get(String url, RequestParams params, AsyncHttpResponseHandler responseHandler) {

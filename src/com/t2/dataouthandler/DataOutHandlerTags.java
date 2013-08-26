@@ -134,6 +134,7 @@ public class DataOutHandlerTags {
 	public static final String HABIT_NOTE = "habit_note";
 
 	public static final String STRUCTURE_TYPE_CHECKIN = "checkin";
+	public static final String STRUCTURE_TYPE_CHECKIN_H4H = "check_in";
 	public static final String CHECKIN_CHECKIN_TIME = "checkin_time";
 	public static final String CHECKIN_HABIT_ID = "habit_id";
 	

@@ -32,6 +32,7 @@ visit http://www.opensource.org/licenses/EPL-1.0
 *****************************************************************/
 package com.t2.dataouthandler.dbcache;
 
+import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -74,7 +75,7 @@ public class DbCache {
 
 	
 
-	public DbCache(String remoteDatabase, Context context, DatabaseCacheUpdateListener databaseUpdateListener) {
+	public DbCache(String remoteDatabase, Context context, DatabaseCacheUpdateListener databaseUpdateListener) throws MalformedURLException, DataOutHandlerException {
 		mDatabaseUpdateListener = databaseUpdateListener;
 		mContext = context;
 		mRemoteDatabase = remoteDatabase;

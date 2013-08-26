@@ -44,7 +44,9 @@ public class GlobalH2 {
 	public static final String[] VALID_DATA_TYPES = new String[] {
 		DataOutHandlerTags.STRUCTURE_TYPE_SENSOR_DATA, 
 		DataOutHandlerTags.STRUCTURE_TYPE_HABIT, 
-		DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN};
+		DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN
+//		DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN_H4H
+		};
 	
 	
 	// A valid record id (title) looks like this:

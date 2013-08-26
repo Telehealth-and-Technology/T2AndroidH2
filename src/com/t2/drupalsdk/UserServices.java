@@ -60,7 +60,8 @@ public class UserServices {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        mServicesClient.post("user/register", params, responseHandler);    	
+//        mServicesClient.post("android/user/register", params, responseHandler);    	
+        mServicesClient.post(mServicesClient.mDrupalRestEndpoint + "/user/register", params, responseHandler);    	
     }
 
     public void Login(String username, String password, AsyncHttpResponseHandler responseHandler) {
@@ -72,11 +73,16 @@ public class UserServices {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        mServicesClient.post("user/login", params, responseHandler);
+//        mServicesClient.post("android/user/login", params, responseHandler);
+        mServicesClient.post(mServicesClient.mDrupalRestEndpoint + "/user/login", params, responseHandler);
     }
 
     public void Logout(AsyncHttpResponseHandler responseHandler) {
-        mServicesClient.post("user/logout", new JSONObject(), responseHandler);
+        mServicesClient.post(mServicesClient.mDrupalRestEndpoint + "/user/logout", new JSONObject(), responseHandler);
+    }
+
+    public void RequestCSRFToken(AsyncHttpResponseHandler responseHandler) {
+        mServicesClient.post("services/session/token", new JSONObject(), responseHandler);
     }
 
     /**
@@ -86,7 +92,7 @@ public class UserServices {
      * @param responseHandler Handler for response
      */
     public void NodeGet( int node, AsyncHttpResponseHandler responseHandler) {
-        mServicesClient.get("node/" + node, new RequestParams(), responseHandler);
+        mServicesClient.get(mServicesClient.mDrupalRestEndpoint + "/node/" + node, new RequestParams(), responseHandler);
     }
 
     /**
@@ -94,14 +100,14 @@ public class UserServices {
      * @param responseHandler Handler for response
      */
     public void NodeGet( AsyncHttpResponseHandler responseHandler) {
-        mServicesClient.get("node/", new RequestParams(), responseHandler);
+        mServicesClient.get(mServicesClient.mDrupalRestEndpoint + "/node/", new RequestParams(), responseHandler);
     }
 
     public void NodePost( String jsonString, AsyncHttpResponseHandler responseHandler) {
         JSONObject params;
 		try {
 			params = new JSONObject(jsonString);
-	        mServicesClient.post("node", params, responseHandler);
+	        mServicesClient.post(mServicesClient.mDrupalRestEndpoint + "/node", params, responseHandler);
 //		} catch (JSONException e) {
 		} catch (Exception e) {
 			Log.e(TAG,  e.toString());
@@ -113,7 +119,7 @@ public class UserServices {
         JSONObject params;
 		try {
 			params = new JSONObject(jsonString);
-	        mServicesClient.put("node/" + drupalNodeId, params, responseHandler);
+	        mServicesClient.put(mServicesClient.mDrupalRestEndpoint + "/node/" + drupalNodeId, params, responseHandler);
 		} catch (JSONException e) {
 			Log.e(TAG,  e.toString());
 			e.printStackTrace();
@@ -121,6 +127,6 @@ public class UserServices {
     }    
     
     public void NodeDelete(AsyncHttpResponseHandler responseHandler, String drupalNodeId) {
-	        mServicesClient.delete("node/" + drupalNodeId, responseHandler);
+	        mServicesClient.delete(mServicesClient.mDrupalRestEndpoint + "/node/" + drupalNodeId, responseHandler);
     }       
 }

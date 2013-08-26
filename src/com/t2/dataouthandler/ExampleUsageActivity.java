@@ -32,11 +32,13 @@ visit http://www.opensource.org/licenses/EPL-1.0
 *****************************************************************/
 package com.t2.dataouthandler;
 
+import java.net.MalformedURLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
 import org.t2health.lib1.SharedPref;
+
 
 
 
@@ -109,7 +111,12 @@ public class ExampleUsageActivity extends Activity {
 		// Initialize (and enable) the database
 		Log.d(TAG, "Initializing database at " + mRemoteDatabaseUri);
 		try {
-			mDataOutHandler.initializeDatabase("","","","", mRemoteDatabaseUri);
+			try {
+				mDataOutHandler.initializeDatabase("","","","", mRemoteDatabaseUri);
+			} catch (MalformedURLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		} catch (DataOutHandlerException e1) {
 			e1.printStackTrace();
 		}
