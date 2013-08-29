@@ -59,6 +59,7 @@ import android.util.Log;
 import com.t2.dataouthandler.DataOutHandlerTags;
 import com.t2.dataouthandler.dbcache.SqlPacket;
 
+// TODO: update for all primary types
 
 public class DataOutPacket implements Serializable {
 
@@ -67,15 +68,17 @@ public class DataOutPacket implements Serializable {
 
     // Official Record Fields
 
+	// Drupal primary keys
+	public String mTitle; 			// USED TO BE Same as mRecordId - now they are two entities
+	public String mDrupalNid = "";		// This is assigned by Drupal ("NID")
+	public String mStructureType;
+	public String mChangedDate;		//
+
+    
     // Primary keys
 	public String mRecordId;
 	public long mTimeStamp;
 	public String mSqlPacketId;		// This is the SQLite row number
-	public String mChangedDate;		//
-	public String mTitle; // Same as mRecordId
-	public String mDrupalNid;		// This is assigned by Drupal ("NID")
-	public String mStructureType;
-	public String mFieldLanguage;
 
 	
 	// Additional record properties (Secondary keys)
@@ -106,6 +109,7 @@ public class DataOutPacket implements Serializable {
 		this.mChangedDate = sqlPacket.getChangedDate();
 		this.mCacheStatus = sqlPacket.getCacheStatus();
 		this.mStructureType = sqlPacket.getStructureType();
+		this.mTitle = sqlPacket.getTitle();
 
 		
 		try {
@@ -182,11 +186,11 @@ public class DataOutPacket implements Serializable {
 			String itemValue;
 			String itemKey;
 
-			// A valid record MUST have a record_id
-			String recordId;
+
+			String recordType;
 			try {
-				recordId = drupalObject.getString("title");
-				if (!GlobalH2.isValidRecordId(recordId)) {			// Cheap trick to see if record is is good
+				recordType = drupalObject.getString("type");
+				if (!GlobalH2.isValidRecordType(recordType)) {			// Cheap trick to see if record is is good
     				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
     		}			
 			} catch (JSONException e2) {
@@ -195,18 +199,21 @@ public class DataOutPacket implements Serializable {
 			
 			// Check for and add primary keys
 			try {
+				mTitle = drupalObject.getString("title");
 				mDrupalNid = drupalObject.getString("nid");
+				mStructureType = drupalObject.getString("type");
+				mChangedDate = drupalObject.getString("changed");
+
+				// TODO: Probably not necessary - but it breaks the build if you remove them
+				// probably because of an empty itemsMap
 				add(DataOutHandlerTags.DRUPAL_NODE_ID, mDrupalNid);
+				add(DataOutHandlerTags.STRUCTURE_TYPE, mStructureType);
+			
+			
 			} catch (JSONException e1) {
 				e1.printStackTrace();
 			}
-			try {
-				mStructureType = drupalObject.getString("type");
-				add(DataOutHandlerTags.STRUCTURE_TYPE, mStructureType);
-			} catch (JSONException e1) {
-				e1.printStackTrace();
-			}			
-			
+
 			
 			// Now parse the secondary keys
 			
@@ -248,16 +255,16 @@ public class DataOutPacket implements Serializable {
 						            
 				            		// Make sure we have a valid record (Record_id must be greater than 13 characteers
 						            add(itemKey,itemValue);
-				            		if (itemKey.equalsIgnoreCase("record_id")) {
-				            			
-				            			if (GlobalH2.isValidRecordId(itemValue)) {
-					            			mRecordId = itemValue;
-				            				mTimeStamp = Long.parseLong(itemValue.substring(0, 13));
-				            			}
-				            			else {
-				            				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
-				            			}
-				            		}
+//				            		if (itemKey.equalsIgnoreCase("record_id")) {
+//				            			
+//				            			if (GlobalH2.isValidRecordId(itemValue)) {
+//					            			mRecordId = itemValue;
+//				            				mTimeStamp = Long.parseLong(itemValue.substring(0, 13));
+//				            			}
+//				            			else {
+//				            				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
+//				            			}
+//				            		}
 			            		}
 			            	}
 			            }
@@ -268,6 +275,12 @@ public class DataOutPacket implements Serializable {
 		    }
 	//	    Log.d(TAG, "Conversion OK");		    
 	}	
+	
+	public void updateChangedDate() {
+    	Calendar calendar = GregorianCalendar.getInstance();
+    	mTimeStamp = calendar.getTimeInMillis();
+    	mChangedDate = "" + mTimeStamp/1000;		
+	}
 	
 	/**
 	 * Create a DataOutPacket
@@ -280,8 +293,13 @@ public class DataOutPacket implements Serializable {
     	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         String currentTimeString = dateFormatter.format(calendar.getTime());
     	mRecordId = mTimeStamp + "-" + uuid.toString();
-    	mChangedDate = currentTimeString;
+//    	mChangedDate = currentTimeString;
+    	mChangedDate = "" + mTimeStamp/1000;
+    	mTitle = "";
     	
+    	// For drupal we start out with the node id equal to the record id
+    	// It will be replace when drupal returns the actual node id
+    	mDrupalNid = mRecordId;     	
     	
     	// If structure type not specified, then default to sensor data
     	add(DataOutHandlerTags.STRUCTURE_TYPE, DataOutHandlerTags.STRUCTURE_TYPE_SENSOR_DATA);	    	
@@ -305,8 +323,16 @@ public class DataOutPacket implements Serializable {
     	mTimeStamp = calendar.getTimeInMillis();
     	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         String currentTimeString = dateFormatter.format(calendar.getTime());
+    	//mChangedDate = currentTimeString;
+    	mChangedDate = "" + mTimeStamp/1000;
+    	
     	mRecordId = mTimeStamp + "-" + uuid.toString();
-    	mChangedDate = currentTimeString;
+    	mTitle = "";
+    	
+    	// For drupal we start out with the node id equal to the record id
+    	// It will be replace when drupal returns the actual node id
+    	mDrupalNid = mRecordId;     	
+    	
     	mStructureType = structureType;
     	add(DataOutHandlerTags.RECORD_ID, mRecordId);
     	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
@@ -483,6 +509,12 @@ public class DataOutPacket implements Serializable {
 		String result = "";
 		
 		result += mRecordId + ", ";
+		result += mDrupalNid + ", ";
+		result += mSqlPacketId + ", ";
+		result += mChangedDate + ", ";
+		result += mCacheStatus + ", ";
+		result += mStructureType + ", ";
+		result += mTitle + ", ";
 		   Iterator it = mItemsMap.entrySet().iterator();
 		    while (it.hasNext()) {
 		        Map.Entry pairs = (Map.Entry)it.next();

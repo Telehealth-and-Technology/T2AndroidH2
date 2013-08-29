@@ -63,6 +63,20 @@ public class GlobalH2 {
 			return false;
 	}
 	
+	
+	public static boolean isValidRecordType(String type) {
+		
+		
+		if (type == null)
+				return false;
+		
+		for (String validType : VALID_DATA_TYPES) {
+			if (type.equalsIgnoreCase(validType))
+				return true;
+		}
+		
+		return false;
+	}	
 }
 
 

@@ -103,6 +103,16 @@ public class UserServices {
         mServicesClient.get(mServicesClient.mDrupalRestEndpoint + "/node/", new RequestParams(), responseHandler);
     }
 
+    /**
+     * Gets all Drupal nodes
+     * @param responseHandler Handler for response
+     */
+    public void NodeGet( AsyncHttpResponseHandler responseHandler, String params) {
+    	mServicesClient.setParameters(params);
+        mServicesClient.get(mServicesClient.mDrupalRestEndpoint + "/node/", new RequestParams(), responseHandler);
+        mServicesClient.clearParameters();
+    }    
+    
     public void NodePost( String jsonString, AsyncHttpResponseHandler responseHandler) {
         JSONObject params;
 		try {

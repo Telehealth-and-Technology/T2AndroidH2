@@ -133,11 +133,13 @@ public class DataOutHandlerTags {
 	public static final String HABIT_REMINDER_TIME = "reminder_time";
 	public static final String HABIT_NOTE = "habit_note";
 
-	public static final String STRUCTURE_TYPE_CHECKIN = "checkin";
+	public static final String STRUCTURE_TYPE_CHECKIN = "check_in";
 	public static final String STRUCTURE_TYPE_CHECKIN_H4H = "check_in";
 	public static final String CHECKIN_CHECKIN_TIME = "checkin_time";
+	public static final String CHECKIN_CHECKIN_TITLE = "title";
 	public static final String CHECKIN_HABIT_ID = "habit_id";
 	
+	public static final String TITLE = "title";
 	
 	// Tags for Pill Planner
 	public static final String USER_EMAIL = "user_email";

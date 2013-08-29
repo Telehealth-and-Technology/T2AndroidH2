@@ -46,13 +46,15 @@ public class SqlPacket {
 
 	private static final String TAG = SqlPacket.class.getSimpleName();
 
-	
+	// Drupal primary keys
+	private String drupalId = "";
+	private String changedDate = "";			// Unix time GMT
+	private String structureType = "";
+	private String title = "";
+
 	private String sqlPacketId = "";
 	private String packetJson = "";
 	private String recordId = "";
-	private String drupalId = "";
-	private String changedDate = "";
-	private String structureType = "";
 
 	private int cacheStatus = GlobalH2.CACHE_IDLE;
 
@@ -79,6 +81,7 @@ public class SqlPacket {
 		sqlPacketId = dataOutPacket.mSqlPacketId;
 		changedDate = dataOutPacket.mChangedDate;
 		structureType = dataOutPacket.mStructureType;
+		title = dataOutPacket.mTitle;
 		
 		String result = "";
 		
@@ -192,9 +195,17 @@ public class SqlPacket {
 	public void setCacheStatus(int cache_Status) {
 		this.cacheStatus = cache_Status;
 	}
+	
+	public String getTitle() {
+		return title;
+	}
+
+	public void setTitle(String title) {
+		this.title = title;
+	}
 
 	public String toString() {
-		return "structureType: " + structureType + "cacheStatus: " + cacheStatus + " packetId: " + sqlPacketId + ", recordId: " + recordId + ", drupalId: " + drupalId + ", changedDate: " + changedDate + ", packet: " + packetJson;
+		return "title: " + title + " structureType: " + structureType + " cacheStatus: " + cacheStatus + " packetId: " + sqlPacketId + ", recordId: " + recordId + ", drupalId: " + drupalId + ", changedDate: " + changedDate + ", packet: " + packetJson;
 	}
 
 	public String getChangedDate() {

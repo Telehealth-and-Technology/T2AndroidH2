@@ -60,8 +60,6 @@ public class DbCache {
 	
 
 
-	private List<String> mDrupalNodeIdList;	   
-	private List<String> mCacheNodeIdList;	   
 	private UserServices us;
 	private String mRemoteDatabase;
 	private Context mContext;
@@ -95,7 +93,7 @@ public class DbCache {
 			SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
 		    sqlPacket.setCacheStatus(GlobalH2.CACHE_DELETING);
 	
-		    db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
+		    db.deleteSqlPacketByDrupalId(sqlPacket.getDrupalId());
 		}	    
 	    
 //	    SqlPacket sqlPacketFromSql = db.getPacketByRecordId(dataOutPacket.mRecordId);	   
@@ -110,14 +108,14 @@ public class DbCache {
 	public void deletePacketFromCache(DataOutPacket dataOutPacket) {
 		synchronized(db) {
 			SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
-			db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
+			db.deleteSqlPacketByDrupalId(sqlPacket.getDrupalId());
 		}
 	}
 	
 	public void deletePacketFromCache(SqlPacket sqlPacket) {
 		synchronized(db) {
 			sqlPacket.setCacheStatus(GlobalH2.CACHE_DELETING);
-			db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
+			db.deleteSqlPacketByDrupalId(sqlPacket.getDrupalId());
 		}
 	}
 	
@@ -149,18 +147,31 @@ public class DbCache {
 	}
 	
 	
-	public List<String> getSqlIdList() {
-        mCacheNodeIdList = new ArrayList<String>();
+	public List<String> getSqlRecordIdList() {
+		ArrayList<String> cacheRecordIdList = new ArrayList<String>();
         List<SqlPacket> packetList = db.getPacketListAsSqlPacket();
 		if (packetList != null) {
 			for (SqlPacket pkt : packetList) {
-				mCacheNodeIdList.add(pkt.getRecordId());
+				cacheRecordIdList.add(pkt.getRecordId());
 			}
 		}
-		return mCacheNodeIdList;
+		return cacheRecordIdList;
 	}
 	
 
+	public List<String> getSqlNodeIdList() {
+		ArrayList<String> cacheNodeIdList = new ArrayList<String>();
+        List<SqlPacket> packetList = db.getPacketListAsSqlPacket();
+		if (packetList != null) {
+			for (SqlPacket pkt : packetList) {
+				cacheNodeIdList.add(pkt.getDrupalId());
+			}
+		}
+		return cacheNodeIdList;
+	}
+		
+	
+	
 	/**
 	 * Updates the cache records with Drupal node id's collected from the DB
 	 * @param mDrupalIdMap
@@ -168,7 +179,6 @@ public class DbCache {
 	public void updateDrupalIds(HashMap<String, String> mDrupalIdMap) {
 		
 		synchronized(db) {		
-	        mCacheNodeIdList = new ArrayList<String>();
 	        List<SqlPacket> packetList = db.getPacketListAsSqlPacket();
 			if (packetList != null) {
 				for (SqlPacket pkt : packetList) {
@@ -206,6 +216,11 @@ public class DbCache {
 		}
 	}
 	 
+	public SqlPacket getPacketByDrupalId(String drupalId) {
+		synchronized(db) {
+			return db.getPacketByDrupalId(drupalId);
+		}		
+}
 	 
 	
 	public SqlPacket getPacketByRecordId(String recordId) {

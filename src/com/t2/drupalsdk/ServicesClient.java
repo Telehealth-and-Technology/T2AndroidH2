@@ -64,6 +64,7 @@ public class ServicesClient {
     public String mDrupalRestEndpoint;
     private String mProtocol;
     private String mHost;
+    private String mParameters = "";
     
     private static final int INDEX_DRUPAL_SERVICE = 3;
     private static final int INDEX_DRUPAL_REST_ENDPOINT = 4;
@@ -72,6 +73,14 @@ public class ServicesClient {
     
     public static AsyncHttpClient mAsyncHttpClient = new AsyncHttpClient();
 
+    public void setParameters(String parameters) {
+    	mParameters = parameters;
+    }
+    
+    public void clearParameters() {
+    	mParameters = "";
+    }
+    
     public void setCSRFToken(String cSRFToken) {
     	mAsyncHttpClient.addHeader("X_CSRF_TOKEN", cSRFToken);
     }
@@ -114,8 +123,8 @@ public class ServicesClient {
     }
 
     private String getAbsoluteUrl(String relativeUrl) {
-//        return this.mUrlString + relativeUrl;
-    	return mProtocol + "://" + mHost + "/" + mDrupalService + "/" + relativeUrl;
+//    	return mProtocol + "://" + mHost + "/" + mDrupalService + "/" + relativeUrl;
+    	return mProtocol + "://" + mHost + "/" + mDrupalService + "/" + relativeUrl + mParameters;
         
     }
 

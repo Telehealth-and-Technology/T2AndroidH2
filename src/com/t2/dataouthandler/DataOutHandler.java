@@ -112,7 +112,7 @@ import com.t2.drupalsdk.UserServices;
 public class DataOutHandler  implements JREngageDelegate {
 					
 	private static final String TAG = DataOutHandler.class.getName();
-	private static final String VERSION_STRING = "2.1.1";
+	private static final String VERSION_STRING = "2.2.1";
 	
 	//private static final String DEFAULT_REST_DB_URL 	= "http://gap.t2health.org/and/phpWebservice/webservice2.php";	 
 	// private static final String DEFAULT_REST_DB_URL 	= "http://gap.t2health.org/and/json.php";	 
@@ -345,7 +345,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	/**
 	 * List of drupal node id's which have been successfully added  to drupal
 	 */
-	private List<String> mDrupalIdsSuccessfullyAdded = new ArrayList<String>();	
+//	private List<String> mDrupalNodeIdsSuccessfullyAdded = new ArrayList<String>();	
 	
 	/**
 	 * Database cache
@@ -680,7 +680,6 @@ public class DataOutHandler  implements JREngageDelegate {
 				Log.e(TAG, e1.toString());
 				e1.printStackTrace();
 			}
-	        
 	        
 	        mCookieStore = new PersistentCookieStore(mContext);
 	        mCookieStore.clear(); // Make sure to start fresh
@@ -1148,6 +1147,7 @@ public class DataOutHandler  implements JREngageDelegate {
 
 			synchronized(mDbCache) {
 				mDbCache.addPacketToCacheWithSendingStatus(dataOutPacket);
+//				SqlPacket sqlPacket = mDbCache.getPacketByRecordId(dataOutPacket.mRecordId);
 			}
         	if (mDatabaseUpdateListener != null) {
         		mDatabaseUpdateListener.remoteDatabaseCreateUpdateComplete(dataOutPacket);
@@ -1156,41 +1156,45 @@ public class DataOutHandler  implements JREngageDelegate {
 	}	
 
 	/**
-	 * Updates a packet in the database
+	 * Updates a packet in the cache
 	 * 
 	 * See handleDataOut() for the data path (Drupal)
 	 * 
 	 * @param packet Packet to update
 	 * @throws DataOutHandlerException
 	 */
-	public void updateRecord(final DataOutPacket dataOutPacket) throws DataOutHandlerException {
+	public void updateRecordInCache(final DataOutPacket dataOutPacket) throws DataOutHandlerException {
 		
 		if (mRequiresAuthentication == true && mAuthenticated == false) {
 			throw new DataOutHandlerException("User is not authenticated");
 		}		
+		
 			
-		SqlPacket sqlPacket = mDbCache.getPacketByRecordId(dataOutPacket.mRecordId);
+		SqlPacket sqlPacket = mDbCache.getPacketByDrupalId(dataOutPacket.mDrupalNid);
 		if (sqlPacket == null) {
-			throw new DataOutHandlerException("Packet RecordID " + dataOutPacket.mRecordId + " does not exist in Cache");
+			throw new DataOutHandlerException("Packet DrupalNodeID " + dataOutPacket.mDrupalNid + " does not exist in Cache");
 		}
 		else {
-			Log.d(TAG, "Updating record " + dataOutPacket.mRecordId);
+			Log.d(TAG, "Updating record " + dataOutPacket.mDrupalNid);
+			Log.d(TAG, "Updating record " + sqlPacket.toString());
+			Log.d(TAG, "From " + dataOutPacket.toString());
+			
 			// We now have the original sql Packet corresponding to this dataOutPacket
 			// We must transfer the changes from the dataOutPAcket to the sqlPAcket
 			// before we do the update.
 			SqlPacket sqlPacketNew = new SqlPacket(dataOutPacket);
 			sqlPacketNew.setSqlPacketId(sqlPacket.getSqlPacketId());
 			
-	    	// Update the changed date
-			Calendar calendar = GregorianCalendar.getInstance();
-		    SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-	    	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
-	        String currentTimeString = dateFormatter.format(calendar.getTime());
-	        sqlPacketNew.setChangedDate(currentTimeString);
+	    	//  - don't do this here - we'll use the drupal changed time instead Update the changed date
+//			Calendar calendar = GregorianCalendar.getInstance();
+//		    SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+//	    	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
+//	        String currentTimeString = dateFormatter.format(calendar.getTime());
+//	        sqlPacketNew.setChangedDate(currentTimeString);
 			
 			int retVal = mDbCache.updateSqlPacket(sqlPacketNew);	
-			Log.d(TAG, "Updated: retVal = " + retVal + " record id = " + dataOutPacket.mRecordId);
-			SqlPacket updatedSqlPacketFromSql = mDbCache.getPacketByRecordId(dataOutPacket.mRecordId);
+			Log.d(TAG, "Updated: retVal = " + retVal + " drupal id = " + dataOutPacket.mDrupalNid);
+			SqlPacket updatedSqlPacketFromSql = mDbCache.getPacketByDrupalId(dataOutPacket.mDrupalNid);
 			
 			// The timed task will take care of updating it in Drupal 
             if (mInstance.mDatabaseUpdateListener != null) {
@@ -1661,12 +1665,15 @@ public class DataOutHandler  implements JREngageDelegate {
 		final ArrayList<String> mSqlNodeIdList;		
 
 		
+		final HashMap<String, String> mRecordIdToDrupalNodeIdMap = new HashMap<String, String>();	
+		final HashMap<String, String> mDrupalNodeIdToRecordIdMap = new HashMap<String, String>();	
+		final HashMap<String, String> mDrupalNodeIdToDrupalChangedTime = new HashMap<String, String>();	
+
+		// To be deleted
+		final HashMap<String, String> mRecordIdToDrupalChangedTime = new HashMap<String, String>();	
 		final ArrayList<String> mDrupalRecordIdList = new ArrayList<String>();			
 		final ArrayList<String> mSqlRecordIdList;		
-		final HashMap<String, String> mRecordIdToDrupalIdMap = new HashMap<String, String>();	
-		final HashMap<String, String> mDrupalIdToRecordIdMap = new HashMap<String, String>();	
-		final HashMap<String, String> mRecordIdToDrupalChangedTime = new HashMap<String, String>();	
-
+		
 		Log.d(TAG, "ProcessCacheThread()");
 		
 		// Get list of all records in the local database
@@ -1703,11 +1710,13 @@ public class DataOutHandler  implements JREngageDelegate {
 	            		// If so then add the record to the summary arrays
 		            	if (GlobalH2.isValidRecordType(type)) {
 		            		mDrupalNodeIdList.add(nodeId);
-
 		            		mDrupalRecordIdList.add(recordId);
-			            	mRecordIdToDrupalIdMap.put(recordId, nodeId);
-			            	mDrupalIdToRecordIdMap.put(nodeId, recordId);	
+		            		
+			            	mRecordIdToDrupalNodeIdMap.put(recordId, nodeId);
+			            	mDrupalNodeIdToRecordIdMap.put(nodeId, recordId);	
 			            	mRecordIdToDrupalChangedTime.put(recordId, changedTime);
+			            	mDrupalNodeIdToDrupalChangedTime.put(nodeId, changedTime);
+
 //           				 if (VERBOSE_LOGGING) {
 //            				 Log.e(TAG, "setting Array RecordId/changed " + recordId + " =  " + changedTime);
 //        				 }			            	
@@ -1720,20 +1729,22 @@ public class DataOutHandler  implements JREngageDelegate {
 	             }
 
         		if (VERBOSE_LOGGING) {
-   	             	Log.e(TAG, "Updated mDrupalRecordIdList, mRecordIdToDrupalIdMap, and mDrupalIdToRecordIdMap");
+//   	             	Log.e(TAG, "Updated mDrupalRecordIdList, mRecordIdToDrupalIdMap, and mDrupalIdToRecordIdMap");
 //   	             	Log.e(TAG, "mDrupalRecordIdList = " + mDrupalRecordIdList.toString());
 //   	             	Log.e(TAG, "mSqlRecordIdList = " + mSqlRecordIdList.toString());
    	             	Log.e(TAG, "mDrupalNodeIdList = " + mDrupalNodeIdList.toString());
    	             	Log.e(TAG, "mSqlNodeIdList = " + mSqlNodeIdList.toString());
         		}
 
-	            // At this point 
-	            //   mDrupalIdList contains a list of all record id's in Drupal
-	            //   mSqlIdList contains a list of all record id's in the SQL cache
-	            //	 mDrupalIdMap contains a map of record id's to node id's in Drupal
-	 			synchronized(mDbCache) {
-	 				mDbCache.updateDrupalIds(mRecordIdToDrupalIdMap);
-				}	             
+
+        		// Don't need do update drupal Id's since they are updated now on successful post
+        		//	            // At this point 
+//	            //   mDrupalIdList contains a list of all record id's in Drupal
+//	            //   mSqlIdList contains a list of all record id's in the SQL cache
+//	            //	 mDrupalIdMap contains a map of record id's to node id's in Drupal
+//	 			synchronized(mDbCache) {
+//	 				mDbCache.updateDrupalIds(mRecordIdToDrupalIdMap);
+//				}	             
 			}
 	
 			@Override
@@ -1760,7 +1771,10 @@ public class DataOutHandler  implements JREngageDelegate {
 			public void onFailure(Throwable arg0, JSONArray arg1) {
 	             Log.e(TAG, "OnFailure(Throwable arg0, JSONArray arg1) " + arg0.toString());
 			}
-	
+	         
+	         	
+	        
+	         
 			/* (non-Javadoc)
 			 * The HTTP call to retrieve the summary contents from Drupal has succeeded.
 			 * Now process the results.
@@ -1769,85 +1783,73 @@ public class DataOutHandler  implements JREngageDelegate {
 			 */
 			@Override
 	        public void onFinish() {
-	             Log.d(TAG, "onFinish(Drupal Node Summary)");
+				Log.d(TAG, "onFinish(Drupal Node Summary)");
 	             
-	             // Now do processing of cache items, comparing what's on the device
-	             // to what's in the remote database.
-	             if (true) {
+	            // Now do processing of cache items, comparing what's on the device
+	            // to what's in the remote database.
+	            if (true) {
 	            	 
-	            	 // We need to update any records that have been successfully added
-	            	 // to update their cache status to idle (so they don't get sent again)
-			 		 synchronized(mDbCache) {
-			 			 Iterator<String> i = mDrupalIdsSuccessfullyAdded.iterator();
-//		            	 while(i.hasNext()) {
-//		            		 String drupalId = i.next();
-//		            		 String recordId = mDrupalIdToRecordIdMap.get(drupalId);
-//		            		 if (recordId != null) {
-//		            			 SqlPacket sqlPacket = mDbCache.getPacketByRecordId(recordId);
-//		            			 if (sqlPacket != null) {
-//		            				 if (VERBOSE_LOGGING) {
-//			            				 Log.e(TAG, "setting RecordId/DrupalId " + recordId + ", " + drupalId + " to idle");
-//		            				 }
+	            	// We need to update any records that have been successfully added
+	            	// to match their times with the drupal time
+			 		synchronized(mDbCache) {
+//			 			Iterator<String> i = mDrupalNodeIdsSuccessfullyAdded.iterator();
+//		            	while(i.hasNext()) {
+//		            		String drupaNodelId = i.next();
+//	            			SqlPacket sqlPacket = mDbCache.getPacketByDrupalId(drupaNodelId);
+//	            			if (sqlPacket != null) {
+//	            				if (VERBOSE_LOGGING) {
+//	            					Log.e(TAG, "updating DrupalNodeId " + drupaNodelId + " changed time to match server");
+//	            				}	     
+//	            				 
+//	     		 				// Now set the changed date to the changed date in from drupal
+//	     		 				// we need to do this because the changed date is later than the one
+//	     		 				// we set (it's set to the time drupal receives the new packet).
+//	     		 				String drupalTime = mDrupalNodeIdToDrupalChangedTime.get(drupaNodelId);
+//	     		 				Long lChangedAt = Long.parseLong((drupalTime)) * 1000;
+//	     		 				Time changedAtTime = new Time();
+//	     		 				 
+//	     		 				Date changedAtDate = new Date(lChangedAt);
+//	     		 			    SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+//	     		 				dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));		     		 				 
+//		     		 			String changedAtTimeString = dateFormatter.format(changedAtDate);		
+////	            				if (VERBOSE_LOGGING) {
+////		            				Log.e(TAG, "setting RecordId/changed " + recordId + " =  " + drupalTime);
+////		            			 	Log.e(TAG, "setting RecordId/changed " + recordId + " =  " + changedAtTimeString);
+////	            				}		     
+//		     		 			 
+//	     		 				sqlPacket.setChangedDate(changedAtTimeString);
+//								mDbCache.updateSqlPacket(sqlPacket);	            				 
+//	            				 
 //
-//		            				 // Now set the status of the cache packet to idle
-//		     		 				 sqlPacket.setCacheStatus(GlobalH2.CACHE_IDLE);
-//		     		 				 
-//		     		 				 // Now set the changed date to the changed date in from drupal
-//		     		 				 // we need to do this because the changed date is later than the one
-//		     		 				 // we set (it's set to the time drupal receives the new packet).
-//		     		 				 String drupalTime = mRecordIdToDrupalChangedTime.get(recordId);
-//		     		 				 Long lChangedAt = Long.parseLong((drupalTime)) * 1000;
-//		     		 				 Time changedAtTime = new Time();
-//		     		 				 
-//		     		 				 Date changedAtDate = new Date(lChangedAt);
-//		     		 			     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-//		     		 				 dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));		     		 				 
-//			     		 			 String changedAtTimeString = dateFormatter.format(changedAtDate);		
-////		            				 if (VERBOSE_LOGGING) {
-////			            				 Log.e(TAG, "setting RecordId/changed " + recordId + " =  " + drupalTime);
-////			            				 Log.e(TAG, "setting RecordId/changed " + recordId + " =  " + changedAtTimeString);
-////		            				 }		     
-//			     		 			 
-//		     		 				 sqlPacket.setChangedDate(changedAtTimeString);
-//									 mDbCache.updateSqlPacket(sqlPacket);
-//				                	 if (mDatabaseUpdateListener != null) {
-//				                		 
-//				                		 try {
-//											mDatabaseUpdateListener.remoteDatabaseCreateUpdateComplete(new DataOutPacket(sqlPacket));
-//										} catch (DataOutHandlerException e) {
-//											Log.e(TAG, e.toString());
-//											e.printStackTrace();
-//										}
-//				                	 }						 
-//									 
-//		     		 				 i.remove();
-//								}										
-//		            		}
-//		            	 }
+////								Do we want to update listeners because changed date changed?
+////			                	if (mDatabaseUpdateListener != null) {
+////			                		try {
+////										mDatabaseUpdateListener.remoteDatabaseCreateUpdateComplete(new DataOutPacket(sqlPacket));
+////			                		} catch (DataOutHandlerException e) {
+////										Log.e(TAG, e.toString());
+////										e.printStackTrace();
+////			                		}
+////			                	 }
+//	            			} // if (sqlPacket != null) {		            		 
+//		     		 		i.remove();
+//		            	}										
 			 		}
 		            	 
 			 		// Now do record by record comparison between the records of the local database (mSqlRecordIdList)
 			 		// to the records of the remote database (mDrupalRecordIdList).
 			 		 
 			 		// Check for records in local cache but not in remote DB
-		            for (String nodeId : mSqlNodeIdList) {
-		            	if (!mDrupalNodeIdList.contains(nodeId)) {
-		            		
-//		   	             	Log.e(TAG, "mDrupalNodeIdList = " + mDrupalNodeIdList.toString());
-//		   	             	Log.e(TAG, "mSqlNodeIdList = " + mSqlNodeIdList.toString());
-//		   	             	Log.e(TAG, "mSqlNodeIdList = " + mSqlNodeIdList.toString());
+		            for (String sqlNodeId : mSqlNodeIdList) {
+		            	if (!mDrupalNodeIdList.contains(sqlNodeId)) {
 		            		
 		            		if (VERBOSE_LOGGING) {
-			        	        Log.e(TAG, "nodeId: " + nodeId + " - Packet exists in local Cache but not in remote DB");
+			        	        Log.e(TAG, "sqlNodeId: " + sqlNodeId + " - Packet exists in local Cache but not in remote DB");
 		            		}
-		            		
 	
-		            		if (nodeId == null) {
+		            		if (sqlNodeId == null) {
 		            			break;
 		            		}
-//		            		SqlPacket sqlPacket = mDbCache.getPacketByRecordId(recordId); // Since recordId is in mSqlRecordIdList we know this will not return null
-		            		SqlPacket sqlPacket = mDbCache.getPacketByDrupalId(nodeId); // Since nodeId is in mSqlNodeIdList we know this will not return null
-		            		
+		            		SqlPacket sqlPacket = mDbCache.getPacketByDrupalId(sqlNodeId); // Since nodeId is in mSqlNodeIdList we know this will not return null
 		            		
 			            	// Exists in cache but not on on Drupal
 		        	        // Two possible cases here
@@ -1883,11 +1885,11 @@ public class DataOutHandler  implements JREngageDelegate {
 								}			            	
 		        	        	
 							}
-			            else {
+				            else {
 			            		// Packet exists in cache but not on on Drupal
 			            		// Case 2 - Packet deleted by other from remote DB      -> Remove the packet from the local cache
 		            			if (VERBOSE_LOGGING) {
-		            				Log.e(TAG, "Case 2 - Remove the packet from the loal cache");
+		            				Log.e(TAG, "Case 2 - Remove the packet from the local cache");
 		            			}
 			            		mDbCache.deletePacketFromCache(sqlPacket);
 	
@@ -1902,60 +1904,62 @@ public class DataOutHandler  implements JREngageDelegate {
 									Log.e(TAG, e.toString());
 									e.printStackTrace();
 								}
-			            	}
-		            	 } // if (!mDrupalIdList.contains(id))
+				            }
+		            	} // if (!mDrupalNodeIdList.contains(id))
 		            	else {
 		            		// Record exists in both local cache and remote db
 		            		// Need to merge the records
-//							if (VERBOSE_LOGGING) {
-//								Log.e(TAG, "Record exists in both local cache and remote db: " + recordId);
-//							}
-//		            		
+							if (VERBOSE_LOGGING) {
+								Log.e(TAG, "Record exists in both local cache and remote db: " + sqlNodeId);
+							}
+		            		
 		            		// First see which record is most recent
-//		            		try {
-//								SqlPacket sqlPacket = mDbCache.getPacketByRecordId(recordId);
-//								if (sqlPacket != null) {
-//									String localChangedAt = sqlPacket.getChangedDate();
-//									DateTime dtLocalChangedAt = new DateTime(localChangedAt);
-//	
-//									long lLocalChangedAt = dtLocalChangedAt.getMillis();
-//									
-//									String drupalChangedAt = mRecordIdToDrupalChangedTime.get(recordId);
+		            		try {
+								SqlPacket sqlPacket = mDbCache.getPacketByDrupalId(sqlNodeId);
+								if (sqlPacket != null) {
+									String localChangedAt = sqlPacket.getChangedDate();
+									//DateTime dtLocalChangedAt = new DateTime(localChangedAt);
+	
+									//long lLocalChangedAt = dtLocalChangedAt.getMillis();
+									long lLocalChangedAt = Long.parseLong(localChangedAt);
+									
+									String drupalChangedAt = mDrupalNodeIdToDrupalChangedTime.get(sqlNodeId);
 //									long lDrupalChangedAt = Long.parseLong(drupalChangedAt) * 1000; 
-//	
-//									if (VERBOSE_LOGGING) {
-//										//Log.e(TAG, "Record exists in both local and remote, times: " + lLocalChangedAt + ", " + lDrupalChangedAt + ", " + recordId);
-//	
-//										if (lDrupalChangedAt == lLocalChangedAt) {
-//											//Log.e(TAG, "RemoteTime and local time are exactly equal");
-//										}
-//										else {
-//											if (lDrupalChangedAt > lLocalChangedAt) {
-//												Log.e(TAG, "RemoteTime is most recent - updating cache from remote");
-//							        	        addPacketToCacheSync(mRecordIdToDrupalIdMap.get(recordId), "U");	// Grabs the packet from Drupal and updates it in the Cache        	          
-//												
-//												
-//											}
-//											else { 
-//												Log.e(TAG, "localTime is most recent");
-//						            			if (VERBOSE_LOGGING) {
-//						            				Log.e(TAG, "Updatating record to remote database");
-//						            			}	
-//						            			
-//						            			// Should we set status to sending/sent here?
-//						            			DataOutPacket dataOutPacket = new DataOutPacket(sqlPacket);
-//						            			sendPacketToRemoteDbSync(dataOutPacket, "U", mRecordIdToDrupalIdMap.get(recordId));
-//												
-//											}
-//										}
-//									}
-//	
-//									}
-//							} catch (Exception e) {
-//								Log.e(TAG, e.toString());
-//								e.printStackTrace();
-//							}		            		
-		            	}
+									long lDrupalChangedAt = Long.parseLong(drupalChangedAt); 
+	
+									if (VERBOSE_LOGGING) {
+										Log.e(TAG, "Record exists in both local and remote, times: " + lLocalChangedAt + ", " + lDrupalChangedAt + ", " + sqlNodeId);
+	
+										if (lDrupalChangedAt == lLocalChangedAt) {
+											//Log.e(TAG, "RemoteTime and local time are exactly equal");
+										}
+										else {
+											if (lDrupalChangedAt > lLocalChangedAt) {
+												Log.e(TAG, "RemoteTime is most recent - updating cache from remote");
+							        	        addPacketToCacheSync(sqlNodeId, "U");	// Grabs the packet from Drupal and updates it in the Cache        	          
+												
+												
+											}
+											else { 
+												Log.e(TAG, "localTime is most recent");
+						            			if (VERBOSE_LOGGING) {
+						            				Log.e(TAG, "Updatating record to remote database");
+						            			}	
+						            			
+						            			// Should we set status to sending/sent here?
+						            			DataOutPacket dataOutPacket = new DataOutPacket(sqlPacket);
+						            			sendPacketToRemoteDbSync(dataOutPacket, "U", sqlNodeId);
+												
+											}
+										}
+									}
+	
+									}
+							} catch (Exception e) {
+								Log.e(TAG, e.toString());
+								e.printStackTrace();
+							}		            		
+		            	} // else
 		        	 }	  // end for (String id : mSqlIdList) 	
 	 
 //		             // Check for records in remote DB but not in local cache
@@ -2056,7 +2060,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		
 		// Give notice that the internal cache should now be in sync with the remote database
 		if (mDatabaseUpdateListener != null) {
-    		mDatabaseUpdateListener.remoteDatabaseSyncComplete(mRecordIdToDrupalIdMap);
+    		mDatabaseUpdateListener.remoteDatabaseSyncComplete(mRecordIdToDrupalNodeIdMap);
     	}	        		
 	}
 
@@ -2101,11 +2105,11 @@ public class DataOutHandler  implements JREngageDelegate {
 		
 	}
 	
-	public class MyAsyncHttpResponseHandler extends JsonHttpResponseHandler {
+	public class T2AsyncHttpResponseHandler extends JsonHttpResponseHandler {
 
 	    private DataOutPacket mDataoutPacket;
 
-	    public MyAsyncHttpResponseHandler(DataOutPacket dataoutPacket) {
+	    public T2AsyncHttpResponseHandler(DataOutPacket dataoutPacket) {
 	    	mDataoutPacket = dataoutPacket;
 	    }
 
@@ -2146,53 +2150,28 @@ public class DataOutHandler  implements JREngageDelegate {
 
 		@Override
 		public void onSuccess(JSONObject arg0) {
-            String nid;
+            String drupalNodeId;
 			try {
-				nid = arg0.getString("nid");
-	            Log.d(TAG, "Myroutine - Successfully submitted article # " + nid);		
+				drupalNodeId = arg0.getString("nid");
+	            Log.d(TAG, "T2AsyncHttpResponseHandler - Successfully submitted article # " + drupalNodeId);		
 	            
-	            // We can't set the cache to sent yet since it's not been associated with
-                // a drupal id yet. That comes with the first Drupal node summary list 
-                // returned from Drupal. We do this processing in ProcessCache()
-	            mDrupalIdsSuccessfullyAdded.add(nid);     
+	            // Need to save a list of id's successfully added so we can grab the changed times
+	            // of them the next time through ProcessCache
+//	            mDrupalNodeIdsSuccessfullyAdded.add(drupalNodeId);     
 	            
 	            // Set node id for record
 	            if (mDataoutPacket.mRecordId != null) {
 	            	SqlPacket sqlPacket = mDbCache.getPacketByRecordId(mDataoutPacket.mRecordId);
 	   				if (VERBOSE_LOGGING) {
-	   					Log.e(TAG, "setting RecordId/DrupalId " + mDataoutPacket.mRecordId + ", " + nid + " to idle");
+	   					Log.e(TAG, "setting RecordId/DrupalNodeId " + mDataoutPacket.mRecordId + ", " + drupalNodeId + " to idle");
 					}
 
-	   				sqlPacket.setDrupalId(nid);
+	   				sqlPacket.setDrupalId(drupalNodeId);
 	   				
 	   				// Now set the status of the cache packet to idle
 	 				sqlPacket.setCacheStatus(GlobalH2.CACHE_IDLE);	       
-	 				
-//	 				 // Now set the changed date to the changed date in from drupal
-//	 				 // we need to do this because the changed date is later than the one
-//	 				 // we set (it's set to the time drupal receives the new packet).
-//	 				 String drupalTime = mRecordIdToDrupalChangedTime.get(recordId);
-//	 				 Long lChangedAt = Long.parseLong((drupalTime)) * 1000;
-//	 				 Time changedAtTime = new Time();
-//	 				 
-//	 				 Date changedAtDate = new Date(lChangedAt);
-//	 			     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-//	 				 dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));		     		 				 
-//		 			 String changedAtTimeString = dateFormatter.format(changedAtDate);		
-////   				 if (VERBOSE_LOGGING) {
-////       				 Log.e(TAG, "setting RecordId/changed " + recordId + " =  " + drupalTime);
-////       				 Log.e(TAG, "setting RecordId/changed " + recordId + " =  " + changedAtTimeString);
-////   				 }		     
-//		 			 
-//	 				 sqlPacket.setChangedDate(changedAtTimeString);
-					 mDbCache.updateSqlPacket(sqlPacket);	            	
-	            	
-	            	
+					mDbCache.updateSqlPacket(sqlPacket);	            	
 	            }
-	            
-	            
-	            
-	            
 			} catch (JSONException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -2291,7 +2270,7 @@ public class DataOutHandler  implements JREngageDelegate {
         
         us = new UserServices(mServicesClient);
 
-        MyAsyncHttpResponseHandler responseHandler = new MyAsyncHttpResponseHandler(dataOutPacket) {
+        T2AsyncHttpResponseHandler responseHandler = new T2AsyncHttpResponseHandler(dataOutPacket) {
             
         	// We get here for Create or Update operations
 //        	@Override
@@ -2396,7 +2375,7 @@ public class DataOutHandler  implements JREngageDelegate {
     void addPacketToCache(final String drupalNodeId, final String action) {
         UserServices us;
         int nodeNum = 0;
-        Log.d(TAG, "addPacketToCache(" + drupalNodeId + ")");
+        Log.d(TAG, "addPacketToCache(" + drupalNodeId + "), action = " + action);
         us = new UserServices(mServicesClient);    	
 
         JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
@@ -2405,8 +2384,9 @@ public class DataOutHandler  implements JREngageDelegate {
             public void onSuccess(JSONObject response) {
 				
 				try {
-					String recordId = (String) response.get("title");
-					Log.d(TAG, "Got object, now adding to cache, recid = " + recordId);
+					String title = (String) response.get("title");
+					Log.d(TAG, "Got object (" + title + "), now adding to cache, drupalId = " + drupalNodeId);
+					Log.d(TAG, "response = " + response);
 				} catch (JSONException e1) {
 					Log.e(TAG, e1.toString());
 					e1.printStackTrace();
@@ -2417,6 +2397,7 @@ public class DataOutHandler  implements JREngageDelegate {
             	DataOutPacket dataOutPacket;
 				try {
 					dataOutPacket = new DataOutPacket(response);
+					Log.d(TAG, "dataOutPacket = " + dataOutPacket.toString());
 					
 					if (action.equalsIgnoreCase("C")) {
 						// Make sure to set the drupal id while adding it to the cache
@@ -2425,7 +2406,7 @@ public class DataOutHandler  implements JREngageDelegate {
 	    				}						
 					}
 					else {
-						updateRecord(dataOutPacket);
+						updateRecordInCache(dataOutPacket);
 					}
                 	
     				// TODO: calling this too often slows down the UI
