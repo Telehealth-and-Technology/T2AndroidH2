@@ -1216,7 +1216,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		}		
 
 		if (mDatabaseEnabled) {
-			mNodeDeleteQueue.add(dataOutPacket.mRecordId);
+			mNodeDeleteQueue.add(dataOutPacket.mDrupalNid);
 			mDbCache.deletePacketFromCacheWithDeletingStatus(dataOutPacket);
 			// The timed task will take care of deleting it from Drupal 
 
@@ -1963,54 +1963,48 @@ public class DataOutHandler  implements JREngageDelegate {
 		        	 }	  // end for (String id : mSqlIdList) 	
 	 
 //		             // Check for records in remote DB but not in local cache
-//		             for (String drupalRecordId : mDrupalRecordIdList) {
-//		            	 
-//		            	 if (!mSqlRecordIdList.contains(drupalRecordId)) {
+		             for (String drupalNodeId : mDrupalNodeIdList) {
+		            	 if (!mSqlNodeIdList.contains(drupalNodeId)) {
 //		            		 //SqlPacket sqlPacket = mDbCache.getPacketByRecordId(drupalRecordId); // Can't do this if not in CACHE!!!!!!
 //		            		 
-//			            		if (VERBOSE_LOGGING) {
-//			            			Log.e(TAG, "recordId: " + drupalRecordId + " - Packet exists in remote DB but not in local Cache");
-//			            		}
-//	
-//		        	          // Packet exists in remote DB but not in local Cache
-//		        	          // Two possible cases here:
-//			        	      // 3 Packeted deleted by self                			-> Delete packet from  remoteDB
-//		        	          // 4 Packet newly inserted by other into remote DB  	-> Add packet to local Cache
-//	
-//		        	          //Log.e(TAG, "mNodeDeleteQueue = " + mNodeDeleteQueue.toString());
-//		        	          
-//		        	          boolean listContainsId = false;
-//		        	          for (String id : mNodeDeleteQueue) {
-//		        	        	  if (id != null && id.equalsIgnoreCase(drupalRecordId)) {
-//		        	        		  listContainsId = true;
-//		        	        		  break;
-//		        	        	  }
-//		        	          }
-//		        	          // Determine which of the cases we have here
-//		        	          if (listContainsId) {
-//
-//		        	        	  // Packet exists in remote DB but not in local Cache
-//		        	        	  // Case 3 - Packeted deleted by self                -> Delete packet from remote DB
-//		        	        	  if (VERBOSE_LOGGING) {
-//		        	        		  Log.e(TAG, "Case 3 - Delete packet from remote DB");
-//		        	        	  }
-//			        	          // Get the drupal id for this record id
-//			        	          String drupalId = mRecordIdToDrupalIdMap.get(drupalRecordId);
-//			        	          if (drupalId != null) {
-//			        	        	  sendPacketToRemoteDbSync(null, "D", drupalId);
-//			        	          }
-//		        	          }
-//		        	          else {
-//			        	          // Packet exists in DB but not in Cache
-//		        	        	  // Case 4 - Packet newly inserted by other into DB  -> Add packet to Cache
-//		        	        	  if (VERBOSE_LOGGING) {
-//		        	        		  Log.e(TAG, "Case 4 - Add packet to local cache");
-//		        	        	  }
-//			        	          String drupalId = mRecordIdToDrupalIdMap.get(drupalRecordId);
-//			        	          addPacketToCacheSync(drupalId, "C");	// Grabs the packet from Drupal and adds it to the Cache        	          
-//		        	          }
-//		            	 }
-//		             } // End  for (String drupalRecordId : mDrupalRecordIdList)
+			            		if (VERBOSE_LOGGING) {
+			            			Log.e(TAG, "drupalNodeId: " + drupalNodeId + " - Packet exists in remote DB but not in local Cache");
+			            		}
+	
+		        	          // Packet exists in remote DB but not in local Cache
+		        	          // Two possible cases here:
+			        	      // 3 Packeted deleted by self                			-> Delete packet from  remoteDB
+		        	          // 4 Packet newly inserted by other into remote DB  	-> Add packet to local Cache
+	
+		        	          //Log.e(TAG, "mNodeDeleteQueue = " + mNodeDeleteQueue.toString());
+		        	          
+		        	          boolean listContainsId = false;
+		        	          for (String id : mNodeDeleteQueue) {
+		        	        	  if (id != null && id.equalsIgnoreCase(drupalNodeId)) {
+		        	        		  listContainsId = true;
+		        	        		  break;
+		        	        	  }
+		        	          }
+		        	          // Determine which of the cases we have here
+		        	          if (listContainsId) {
+
+		        	        	  // Packet exists in remote DB but not in local Cache
+		        	        	  // Case 3 - Packeted deleted by self                -> Delete packet from remote DB
+		        	        	  if (VERBOSE_LOGGING) {
+		        	        		  Log.e(TAG, "Case 3 - Delete packet from remote DB");
+		        	        	  }
+		        	        	  sendPacketToRemoteDbSync(null, "D", drupalNodeId);
+		        	          }
+		        	          else {
+			        	          // Packet exists in DB but not in Cache
+		        	        	  // Case 4 - Packet newly inserted by other into DB  -> Add packet to Cache
+		        	        	  if (VERBOSE_LOGGING) {
+		        	        		  Log.e(TAG, "Case 4 - Add packet to local cache");
+		        	        	  }
+			        	          addPacketToCacheSync(drupalNodeId, "C");	// Grabs the packet from Drupal and adds it to the Cache        	          
+		        	          }
+		            	 }
+		             } 
 	             }
                 try {
             		if (VERBOSE_LOGGING) {
