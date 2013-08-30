@@ -32,6 +32,9 @@ visit http://www.opensource.org/licenses/EPL-1.0
 *****************************************************************/
 package com.t2.h2h4h;
 
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Vector;
@@ -40,6 +43,10 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 
+import android.util.Log;
+
+import com.t2.dataouthandler.DataOutHandler;
+import com.t2.dataouthandler.DataOutHandlerException;
 import com.t2.dataouthandler.DataOutHandlerTags;
 import com.t2.dataouthandler.DataOutPacket;
 import com.t2.drupalsdk.DrupalUtils;
@@ -50,11 +57,47 @@ import com.t2.drupalsdk.DrupalUtils;
  *
  */
 public class Habit {
+	private static final String TAG = Habit.class.getName();	
 	
-	DataOutPacket mDataOutPacket;
+	// Data contract fields - Primary 
+	String mTitle;
 
+	// Data contract fields - Secondary 
+	String mNote;
+	String mReminderTimeUnix;
+
+	Date mReminderTime;
+	DataOutPacket mDataOutPacket;
+	
+	
+	public Habit(String title, String note, Date reminderTime) throws DataOutHandlerException {
+		DataOutHandler sDataOutHandler;		
+		
+		sDataOutHandler = DataOutHandler.getInstance();			
+		
+		mTitle = title;
+		mNote = note;
+		mReminderTime = reminderTime;
+		
+		Calendar calendar = GregorianCalendar.getInstance();
+		calendar.setTime(reminderTime);
+		long currentTime = calendar.getTimeInMillis();	
+		mReminderTimeUnix = String.valueOf(currentTime / 1000);
+		
+				
+		
+		mDataOutPacket = new DataOutPacket(DataOutHandlerTags.STRUCTURE_TYPE_HABIT);
+		mDataOutPacket.mTitle = title;		
+		mDataOutPacket.add(DataOutHandlerTags.HABIT_NOTE, note);		
+		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, mReminderTimeUnix);		
+		
+		sDataOutHandler.handleDataOut(mDataOutPacket);
+		
+	}
+	
 	public Habit(DataOutPacket dataOutPacket) {
 		mDataOutPacket = dataOutPacket;
+		mTitle = mDataOutPacket.mTitle;
 	}
 	
 	/**

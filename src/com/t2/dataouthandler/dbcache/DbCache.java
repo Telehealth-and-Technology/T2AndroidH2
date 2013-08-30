@@ -215,6 +215,17 @@ public class DbCache {
 			return db.getPacketList(structureTypes);
 		}
 	}
+	
+	/**
+	 * Requests a list of DataOutPackets from the local cache
+	 * @param whereClause - where clause to use in SQL statement
+	 * @return - List of DataOutPackets in the local cache
+	 */
+	public ArrayList<DataOutPacket> getPacketList(String whereClause) {
+		synchronized(db) {
+			return db.getPacketList(whereClause);
+		}
+	}	
 	 
 	public SqlPacket getPacketByDrupalId(String drupalId) {
 		synchronized(db) {

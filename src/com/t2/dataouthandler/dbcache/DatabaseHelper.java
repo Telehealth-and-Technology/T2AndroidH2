@@ -149,6 +149,66 @@ public class DatabaseHelper
 		return "'" + string + "'";
 	}	
 	
+	/**
+	 * Requests a list of DataOutPackets from the local cache
+	 * @param whereClause - where clause to use in SQL statement
+	 * @return - List of DataOutPackets in the local cache
+	 */
+	public ArrayList<DataOutPacket> getPacketList(String whereString)	{
+		
+		OpenHelper openHelper = new OpenHelper(this.context);
+		this.db = openHelper.getWritableDatabase();
+		Cursor cursor = null;
+		
+		String query = "select PacketID, PacketSql, DrupalId, RecordId, CacheStatus, ChangedDate, StructureType, Title from PERSISTENTCACHE " +
+				"			where " + whereString;
+
+		ArrayList<DataOutPacket> packets = new ArrayList<DataOutPacket>();
+		try {
+			cursor = this.db.rawQuery(query, null);
+			if (cursor.moveToFirst()) {
+				do 	{
+					SqlPacket sqlPacket = new SqlPacket();
+					sqlPacket.setSqlPacketId(cursor.getString(0));
+					sqlPacket.setPacket(cursor.getString(1));
+					sqlPacket.setDrupalId(cursor.getString(2));
+					sqlPacket.setRecordId(cursor.getString(3));
+					sqlPacket.setCacheStatus(cursor.getInt(4));
+					sqlPacket.setChangedDate(cursor.getString(5));
+					sqlPacket.setStructureType(cursor.getString(6));
+					sqlPacket.setTitle(cursor.getString(7));
+
+//					if (sqlPacket.getCacheStatus() != SqlPacket.CACHE_DELETING) {
+						if (true) {
+						try {
+							DataOutPacket packetDOP = new DataOutPacket(sqlPacket);
+							packets.add(packetDOP);
+						} catch (DataOutHandlerException e) {
+							e.printStackTrace();
+						}
+					}
+				}
+				while (cursor.moveToNext());
+
+				if (cursor != null && !cursor.isClosed()) {
+					cursor.close();
+				}
+
+				db.close();
+				return packets;
+			}
+			else {
+				cursor.close();
+				db.close();
+				return packets;
+			}
+		} catch (Exception e) {
+			Log.e("Exception", e.toString());
+			e.printStackTrace();
+			return null;
+		}
+			
+	}	
 	
 	/**
 	 * Requests a list of DataOutPackets from the local cache
@@ -156,6 +216,27 @@ public class DatabaseHelper
 	 * @return - List of DataOutPackets in the local cache
 	 */
 	public ArrayList<DataOutPacket> getPacketList(List<String> structureTypes)	{
+		OpenHelper openHelper = new OpenHelper(this.context);
+		this.db = openHelper.getWritableDatabase();
+		Cursor cursor = null;
+		
+		String structureTypesString = "";
+		for (String type : structureTypes) {
+			structureTypesString += "'" + type + "',";
+		}
+		structureTypesString = structureTypesString.replaceAll("[,]$","");
+		String whereString = "StructureType in (" + structureTypesString + ")";
+		
+		return getPacketList(whereString);
+
+	}		
+	
+	/**
+	 * Requests a list of DataOutPackets from the local cache
+	 * @param structureType - Structure types to filter on
+	 * @return - List of DataOutPackets in the local cache
+	 */
+	public ArrayList<DataOutPacket> getPacketListFull(List<String> structureTypes)	{
 		OpenHelper openHelper = new OpenHelper(this.context);
 		this.db = openHelper.getWritableDatabase();
 		Cursor cursor = null;

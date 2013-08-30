@@ -2141,6 +2141,15 @@ public class DataOutHandler  implements JREngageDelegate {
 	}	
 	
 	/**
+	 * Requests a list of DataOutPackets from the local cache
+	 * @param whereClause - where clause to use in SQL statement
+	 * @return - List of DataOutPackets in the local cache
+	 */
+	public ArrayList<DataOutPacket> getPacketList(String whereClause) {
+		return mDbCache.getPacketList(whereClause);
+	}		
+	
+	/**
 	 * Gets specific packet based on record id
 	 * @param recordId - record id to use in search
 	 * @return - Packet corresponding to record id
