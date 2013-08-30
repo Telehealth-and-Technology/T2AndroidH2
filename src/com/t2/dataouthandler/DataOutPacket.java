@@ -37,6 +37,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -53,6 +54,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.net.ParseException;
 import android.os.Build;
 import android.util.Log;
 
@@ -65,6 +67,7 @@ public class DataOutPacket implements Serializable {
 
 	private final String TAG = getClass().getName();	
     private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+    private SimpleDateFormat simpleDateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");    
 
     // Official Record Fields
 
@@ -245,26 +248,37 @@ public class DataOutPacket implements Serializable {
 			            				itemValue = obj3.getString("value");
 			            				vector.add(itemValue);
 			            			}
-			            			itemKey = key.substring(6, key.length());
+			            			itemKey = key.substring(6, key.length()); // Remove the field_
 			            			add(itemKey,vector);			            			
 			            		}
 			            		else {
 				            		JSONObject obj3 = undArrayObj.getJSONObject(0);
 				            		itemValue = obj3.getString("value");
-				            		itemKey = key.substring(6, key.length());
+				            		itemKey = key.substring(6, key.length()); // Remove the field_
 						            
-				            		// Make sure we have a valid record (Record_id must be greater than 13 characteers
-						            add(itemKey,itemValue);
-//				            		if (itemKey.equalsIgnoreCase("record_id")) {
-//				            			
-//				            			if (GlobalH2.isValidRecordId(itemValue)) {
-//					            			mRecordId = itemValue;
-//				            				mTimeStamp = Long.parseLong(itemValue.substring(0, 13));
-//				            			}
-//				            			else {
-//				            				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
-//				            			}
-//				            		}
+
+				            		if (itemKey.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_CHECKIN_TIME)) {
+				            			Log.e(TAG, "bad time: " + itemValue);
+				            			// Special case for checkin time. since Drupal sends it to us in a wonky way
+				            			SimpleDateFormat  badFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");  
+				            			try {  
+				            			    Date date = new Date();
+											date = badFormat.parse(itemValue);
+					            			SimpleDateFormat  goodFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");  
+				            			    itemValue = goodFormat.format(date);
+				            			    add(itemKey,itemValue);				            			    
+					            			Log.e(TAG, "good time: " + itemValue);
+				            			    
+				            			} catch (ParseException e) {  
+				            			    e.printStackTrace();  
+				            			} catch (java.text.ParseException e) {
+											e.printStackTrace();
+										} 				            			
+				            		}
+				            		else {
+					            		add(itemKey,itemValue);
+				            		}
+
 			            		}
 			            	}
 			            }
@@ -292,6 +306,7 @@ public class DataOutPacket implements Serializable {
     	mTimeStamp = calendar.getTimeInMillis();
     	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         String currentTimeString = dateFormatter.format(calendar.getTime());
+        String simpleTimeString = simpleDateFormatter.format(calendar.getTime());
     	mRecordId = mTimeStamp + "-" + uuid.toString();
 //    	mChangedDate = currentTimeString;
     	mChangedDate = "" + mTimeStamp/1000;
@@ -308,7 +323,7 @@ public class DataOutPacket implements Serializable {
     	add(DataOutHandlerTags.RECORD_ID, mRecordId);
     	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
     	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
-    	add(DataOutHandlerTags.CHANGED_AT, currentTimeString);
+    	add(DataOutHandlerTags.CHANGED_AT, simpleTimeString);
     	add(DataOutHandlerTags.PLATFORM, "Android");		    	
     	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);	    	
 	}
@@ -323,6 +338,7 @@ public class DataOutPacket implements Serializable {
     	mTimeStamp = calendar.getTimeInMillis();
     	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         String currentTimeString = dateFormatter.format(calendar.getTime());
+        String simpleTimeString = simpleDateFormatter.format(calendar.getTime());        
     	//mChangedDate = currentTimeString;
     	mChangedDate = "" + mTimeStamp/1000;
     	
@@ -337,7 +353,7 @@ public class DataOutPacket implements Serializable {
     	add(DataOutHandlerTags.RECORD_ID, mRecordId);
     	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
     	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
-    	add(DataOutHandlerTags.CHANGED_AT, currentTimeString);
+    	add(DataOutHandlerTags.CHANGED_AT, simpleTimeString);
     	add(DataOutHandlerTags.PLATFORM, "Android");		    	
     	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);	    	
     	add(DataOutHandlerTags.STRUCTURE_TYPE, structureType);	    	

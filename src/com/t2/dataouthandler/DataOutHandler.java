@@ -119,8 +119,8 @@ public class DataOutHandler  implements JREngageDelegate {
 	private static final String DEFAULT_REST_DB_URL 	= "http://ec2-50-112-197-66.us-west-2.compute.amazonaws.com/mongo/json.php";
 	private static final String DEFAULT_AWS_DB_URL 		= "h2tvm.elasticbeanstalk.com";
 
-//	private static final String DEFAULT_DRUPAL_DB_URL 	= "http://t2health.us/h2/android/";
-	private static final String DEFAULT_DRUPAL_DB_URL 	= "http://t2health.us/h4hnew/api/";
+	private static final String DEFAULT_DRUPAL_DB_URL 	= "http://t2health.us/h2/android/";
+//	private static final String DEFAULT_DRUPAL_DB_URL 	= "http://t2health.us/h4hnew/api/";
 
     private String fred = "{    \"type\": \"check_in\",    \"habit_id\": \"23\",    \"uid\": \"44\",    \"title\": \"new checkin blah blah blah 2dsfsdf nid 99 unset\",    \"log\": \"\",    \"status\": \"1\",    \"comment\": \"2\",    \"promote\": \"0\",    \"sticky\": \"0\",    \"type\": \"check_in\",    \"language\": \"und\",    \"created\": \"1376957648\",    \"changed\": \"1376957648\",    \"tnid\": \"0\",    \"translate\": \"0\",    \"revision_timestamp\": \"1376957648\",    \"revision_uid\": \"44\",    \"body\": {        \"und\": [{            \"value\": \"\",            \"summary\": \"\",            \"format\": \"filtered_html\",            \"safe_value\": \"\",            \"safe_summary\": \"\"        }]    },    \"field_checkin_time\": {\"und\": [ { \"value\": { \"date\": \"2013-08-20 13:31\"} } ] }}";
 
@@ -2218,7 +2218,7 @@ public class DataOutHandler  implements JREngageDelegate {
         
         if (dataOutPacket != null) {
 
-            Log.d(TAG, "sendPacketToRemoteDb(" + dataOutPacket.mRecordId + ")");
+            Log.d(TAG, "sendPacketToRemoteDb(" + dataOutPacket.mDrupalNid + ")");
 
             if (dataOutPacket.mStructureType.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN)) {
             	Checkin checkin = new Checkin(dataOutPacket);
