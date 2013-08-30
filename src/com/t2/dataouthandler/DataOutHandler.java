@@ -1441,7 +1441,6 @@ public class DataOutHandler  implements JREngageDelegate {
 		final ArrayList<String> mDrupalNodeIdList = new ArrayList<String>();			
 		final ArrayList<String> mSqlNodeIdList;		
 		
-		final HashMap<String, String> mRecordIdToDrupalNodeIdMap = new HashMap<String, String>();	
 		final HashMap<String, String> mDrupalNodeIdToDrupalChangedTime = new HashMap<String, String>();	
 
 		Log.d(TAG, "ProcessCacheThread()");
@@ -1481,7 +1480,6 @@ public class DataOutHandler  implements JREngageDelegate {
 	            		// If so then add the record to the summary arrays
 		            	if (GlobalH2.isValidRecordType(type)) {
 		            		mDrupalNodeIdList.add(nodeId);
-			            	mRecordIdToDrupalNodeIdMap.put(recordId, nodeId);
 			            	mDrupalNodeIdToDrupalChangedTime.put(nodeId, changedTime);
 
 //           				 if (VERBOSE_LOGGING) {
@@ -1751,7 +1749,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		
 		// Give notice that the internal cache should now be in sync with the remote database
 		if (mDatabaseUpdateListener != null) {
-    		mDatabaseUpdateListener.remoteDatabaseSyncComplete(mRecordIdToDrupalNodeIdMap);
+    		mDatabaseUpdateListener.remoteDatabaseSyncComplete();
     	}	        		
 	}
 
