@@ -50,6 +50,9 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.Vector;
 
+import org.codehaus.jackson.node.ArrayNode;
+import org.codehaus.jackson.node.JsonNodeFactory;
+import org.codehaus.jackson.node.ObjectNode;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -60,6 +63,7 @@ import android.util.Log;
 
 import com.t2.dataouthandler.DataOutHandlerTags;
 import com.t2.dataouthandler.dbcache.SqlPacket;
+import com.t2.drupalsdk.DrupalUtils;
 
 // TODO: update for all primary types
 
@@ -76,13 +80,11 @@ public class DataOutPacket implements Serializable {
 	public String mDrupalNid = "";		// This is assigned by Drupal ("NID")
 	public String mStructureType;
 	public String mChangedDate;		//
-
     
     // Primary keys
 	public String mRecordId;
 	public long mTimeStamp;
 	public String mSqlPacketId;		// This is the SQLite row number
-
 	
 	// Additional record properties (Secondary keys)
 	public HashMap<String, Object> mItemsMap = new HashMap<String, Object>();
@@ -91,9 +93,12 @@ public class DataOutPacket implements Serializable {
 	public String mLoggingString;
 	public String mQueuedAction = "C";		// Assume all actions are Create unless specifically set otherwise
 	
-	
 	public int mCacheStatus = GlobalH2.CACHE_IDLE;	
 	
+	/**
+	 * Desired format of data lof files
+	 */
+	private int mLogFormat = GlobalH2.LOG_FORMAT_JSON;	// Alternatively LOG_FORMAT_FLAT 	
 
 	/**
 	 * Construct a DataOutPacket from a SQL packet
@@ -113,7 +118,6 @@ public class DataOutPacket implements Serializable {
 		this.mCacheStatus = sqlPacket.getCacheStatus();
 		this.mStructureType = sqlPacket.getStructureType();
 		this.mTitle = sqlPacket.getTitle();
-
 		
 		try {
 			JSONObject mainObject = new JSONObject(sqlPacket.getPacketJson());
@@ -153,9 +157,6 @@ public class DataOutPacket implements Serializable {
 			e.printStackTrace();
 		}		
 	}	
-	
-	
-	
 
 	/**
 	 * Construct a DataOutPacket from a JSON string (supplied by Drupal)
@@ -186,116 +187,106 @@ public class DataOutPacket implements Serializable {
 	 */
 	public DataOutPacket(JSONObject drupalObject) throws DataOutHandlerException {
 		
-			String itemValue;
-			String itemKey;
+		String itemValue;
+		String itemKey;
 
 
-			String recordType;
-			try {
-				recordType = drupalObject.getString("type");
-				if (!GlobalH2.isValidRecordType(recordType)) {			// Cheap trick to see if record is is good
-    				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
-    		}			
-			} catch (JSONException e2) {
+		String recordType;
+		try {
+			recordType = drupalObject.getString("type");
+			if (!GlobalH2.isValidRecordType(recordType)) {			// Cheap trick to see if record is is good
 				throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
-			}
-			
-			// Check for and add primary keys
-			try {
-				mTitle = drupalObject.getString("title");
-				mDrupalNid = drupalObject.getString("nid");
-				mStructureType = drupalObject.getString("type");
-				mChangedDate = drupalObject.getString("changed");
+		}			
+		} catch (JSONException e2) {
+			throw new DataOutHandlerException("Unrecognizable as DataOutPacket");
+		}
+		
+		// Check for and add primary keys
+		try {
+			mTitle = drupalObject.getString("title");
+			mDrupalNid = drupalObject.getString("nid");
+			mStructureType = drupalObject.getString("type");
+			mChangedDate = drupalObject.getString("changed");
 
-				// TODO: Probably not necessary - but it breaks the build if you remove them
-				// probably because of an empty itemsMap
-				add(DataOutHandlerTags.DRUPAL_NODE_ID, mDrupalNid);
-				add(DataOutHandlerTags.STRUCTURE_TYPE, mStructureType);
-			
-			
-			} catch (JSONException e1) {
-				e1.printStackTrace();
-			}
+			// TODO: Probably not necessary - but it breaks the build if you remove them
+			// probably because of an empty itemsMap
+			add(DataOutHandlerTags.DRUPAL_NODE_ID, mDrupalNid);
+			add(DataOutHandlerTags.STRUCTURE_TYPE, mStructureType);
+		
+		} catch (JSONException e1) {
+			e1.printStackTrace();
+		}
+		
+		// Now parse the secondary keys
+	   Iterator<String> iter = drupalObject.keys();
+	    while (iter.hasNext()) {
+	        String key = iter.next();
+	        
+	        // Valid DataOutPacket entries have keys that start with field_"
+	        // and contain another object (key = und"
+	        if (key.startsWith("field")) {
+		        try {
+		            Object undObject = drupalObject.get(key);
 
-			
-			// Now parse the secondary keys
-			
-		   Iterator<String> iter = drupalObject.keys();
-		    while (iter.hasNext()) {
-		        String key = iter.next();
-		        
-		        // Valid DataOutPacket entries have keys that start with field_"
-		        // and contain another object (key = und"
-		        if (key.startsWith("field")) {
-			        try {
-			            Object undObject = drupalObject.get(key);
+		            if (undObject instanceof JSONObject) {
+		            	
+		            	JSONObject obj = (JSONObject)undObject;
+		            	Object obj1 = obj.get("und");
+		            	if (obj1 instanceof JSONArray) {
+		            		
+		            		JSONArray undArrayObj = (JSONArray)obj1;
 
-			            if (undObject instanceof JSONObject) {
-			            	
-			            	JSONObject obj = (JSONObject)undObject;
-			            	Object obj1 = obj.get("und");
-			            	if (obj1 instanceof JSONArray) {
-			            		
-			            		JSONArray undArrayObj = (JSONArray)obj1;
+		            		// If the array holds only 1 entry then just add  it
+		            		// Otherwise the array must be converted to a vector before adding it
+		            		if (undArrayObj.length() > 1) {
+		            			
+	            				Vector vector = new Vector();	
+		            			for (int i = 0; i < undArrayObj.length(); i++ ) {
+		            				JSONObject obj3 = undArrayObj.getJSONObject(i);	
+		            				itemValue = obj3.getString("value");
+		            				vector.add(itemValue);
+		            			}
+		            			itemKey = key.substring(6, key.length()); // Remove the field_
+		            			add(itemKey,vector);			            			
+		            		}
+		            		else {
+			            		JSONObject obj3 = undArrayObj.getJSONObject(0);
+			            		itemValue = obj3.getString("value");
+			            		itemKey = key.substring(6, key.length()); // Remove the field_
+					            
 
-			            		// If the array holds only 1 entry then just add  it
-			            		// Otherwise the array must be converted to a vector before adding it
-			            		if (undArrayObj.length() > 1) {
-			            			
-		            				Vector vector = new Vector();	
-			            			for (int i = 0; i < undArrayObj.length(); i++ ) {
-			            				JSONObject obj3 = undArrayObj.getJSONObject(i);	
-			            				itemValue = obj3.getString("value");
-			            				vector.add(itemValue);
-			            			}
-			            			itemKey = key.substring(6, key.length()); // Remove the field_
-			            			add(itemKey,vector);			            			
+			            		if (itemKey.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_CHECKIN_TIME)) {
+			            			Log.e(TAG, "bad time: " + itemValue);
+			            			// Special case for checkin time. since Drupal sends it to us in a wonky way
+			            			SimpleDateFormat  badFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");  
+			            			try {  
+			            			    Date date = new Date();
+										date = badFormat.parse(itemValue);
+				            			SimpleDateFormat  goodFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");  
+			            			    itemValue = goodFormat.format(date);
+			            			    add(itemKey,itemValue);				            			    
+				            			Log.e(TAG, "good time: " + itemValue);
+			            			    
+			            			} catch (ParseException e) {  
+			            			    e.printStackTrace();  
+			            			} catch (java.text.ParseException e) {
+										e.printStackTrace();
+									} 				            			
 			            		}
 			            		else {
-				            		JSONObject obj3 = undArrayObj.getJSONObject(0);
-				            		itemValue = obj3.getString("value");
-				            		itemKey = key.substring(6, key.length()); // Remove the field_
-						            
-
-				            		if (itemKey.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_CHECKIN_TIME)) {
-				            			Log.e(TAG, "bad time: " + itemValue);
-				            			// Special case for checkin time. since Drupal sends it to us in a wonky way
-				            			SimpleDateFormat  badFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");  
-				            			try {  
-				            			    Date date = new Date();
-											date = badFormat.parse(itemValue);
-					            			SimpleDateFormat  goodFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");  
-				            			    itemValue = goodFormat.format(date);
-				            			    add(itemKey,itemValue);				            			    
-					            			Log.e(TAG, "good time: " + itemValue);
-				            			    
-				            			} catch (ParseException e) {  
-				            			    e.printStackTrace();  
-				            			} catch (java.text.ParseException e) {
-											e.printStackTrace();
-										} 				            			
-				            		}
-				            		else {
-					            		add(itemKey,itemValue);
-				            		}
-
+				            		add(itemKey,itemValue);
 			            		}
-			            	}
-			            }
-			        } catch (JSONException e) {
-			        	Log.e(TAG, e.toString());
-			        }
+
+		            		}
+		            	}
+		            }
+		        } catch (JSONException e) {
+		        	Log.e(TAG, e.toString());
 		        }
-		    }
-	//	    Log.d(TAG, "Conversion OK");		    
+	        }
+	    }
 	}	
-	
-	public void updateChangedDate() {
-    	Calendar calendar = GregorianCalendar.getInstance();
-    	mTimeStamp = calendar.getTimeInMillis();
-    	mChangedDate = "" + mTimeStamp/1000;		
-	}
-	
+
 	/**
 	 * Create a DataOutPacket
 	 *  By default it's a STRUCTURE_TYPE_SENSOR_DATA structure
@@ -359,6 +350,129 @@ public class DataOutPacket implements Serializable {
     	add(DataOutHandlerTags.STRUCTURE_TYPE, structureType);	    	
 	}	
 	
+	/**
+	 * Serializes the contents of this DataOutPacket in Drupal format
+	 * 
+	 * @return String version of drupalized DataOutPacket
+	 */
+	public String drupalize() {
+		ObjectNode item = JsonNodeFactory.instance.objectNode();
+		
+		// First put any primary keys
+		item.put("title", mRecordId);
+		item.put("type", mStructureType);
+		item.put("language", "und");										
+
+		Iterator it = mItemsMap.entrySet().iterator();
+		while (it.hasNext()) {
+			Map.Entry pairs = (Map.Entry)it.next();	
+	        if (pairs.getValue() instanceof Integer) {
+	        	DrupalUtils.putDrupalFieldNode((String)pairs.getKey(), (Integer)pairs.getValue(), item);								        	
+	        	mLoggingString += formatTextForLog(pairs);
+	        }
+	        if (pairs.getValue() instanceof String) {
+	        	DrupalUtils.putDrupalFieldNode((String)pairs.getKey(), (String)pairs.getValue(), item);								        	
+	        	mLoggingString += formatTextForLog(pairs);
+	        }
+	        if (pairs.getValue() instanceof Long) {
+	        	DrupalUtils.putDrupalFieldNode((String)pairs.getKey(), (Long)pairs.getValue(), item);								        	
+	        	mLoggingString += formatTextForLog(pairs);
+	        }
+	        if (pairs.getValue() instanceof Double) {
+	        	DrupalUtils.putDrupalFieldNode((String)pairs.getKey(), (Double)pairs.getValue(), item);								        	
+	        	mLoggingString += formatTextForLog(pairs);
+	        }
+	        if (pairs.getValue() instanceof Float) {
+	        	DrupalUtils.putDrupalFieldNode((String)pairs.getKey(), (Float)pairs.getValue(), item);								        	
+	        	mLoggingString += formatTextForLog(pairs);
+	        }
+	        if (pairs.getValue() instanceof Vector) {
+				// Note special format for vector in drupal!
+				String newTag = "field_" + ((String) pairs.getKey()).toLowerCase();
+				ObjectNode undNode = JsonNodeFactory.instance.objectNode();		
+				ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();		
+
+	        	// TODO: Potential problem - saves all of the vector items as type STRING
+				for (Object v : (Vector) pairs.getValue()) {
+					ObjectNode valueNode = JsonNodeFactory.instance.objectNode();		
+					valueNode.put("value", v.toString());
+					arrayNode.add(valueNode);	
+				}
+				
+				undNode.put("und", arrayNode);			
+				item.put(newTag, undNode);									        	
+				mLoggingString += formatTextForLog(pairs);
+	        }										
+			
+		} // End while (it.hasNext())
+		return item.toString();	}
+	
+	/**
+	 * Formats a string that can be use for log files.
+	 *  format is based on log type and database type 
+	 * @param databaseType Type of database
+	 * @param pairs Map of data entry
+	 * 
+	 * @return Formatted string based
+	 */
+	String formatTextForLog(Map.Entry pairs) {
+		String result = "";
+		
+        if (pairs.getValue() instanceof Integer) {
+			if (mLogFormat == GlobalH2.LOG_FORMAT_JSON) {
+				result = "\"" + pairs.getKey() + "\":" + pairs.getValue()  + ",";			
+			}
+			else {
+				result = "" + pairs.getValue()  + ",";			
+			}							        	
+        }
+        if (pairs.getValue() instanceof String) {
+			if (mLogFormat == GlobalH2.LOG_FORMAT_JSON) {
+				result = "\"" + pairs.getKey() + "\":\"" + pairs.getValue() + "\",";			
+			}
+			else {
+				result = "" + pairs.getValue() + ",";			
+			}							        	
+        }
+        if (pairs.getValue() instanceof Long) {
+			if (mLogFormat == GlobalH2.LOG_FORMAT_JSON) {
+				result = "\"" + pairs.getKey() + "\":" + pairs.getValue() + ",";			
+			}
+			else {
+				result = "" + pairs.getValue() + ",";			
+			}							        	
+        }
+        if (pairs.getValue() instanceof Double) {
+			if (mLogFormat == GlobalH2.LOG_FORMAT_JSON) {
+				result = String.format("\"%s\":\"%f\",", pairs.getKey(),pairs.getValue());
+			}
+			else {
+				result = "" + pairs.getValue() + ",";			
+			}							        	
+        }
+        if (pairs.getValue() instanceof Vector) {
+			if (mLogFormat == GlobalH2.LOG_FORMAT_JSON) {
+				ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();						
+				for (Object v : (Vector) pairs.getValue()) {
+					ObjectNode valueNode = JsonNodeFactory.instance.objectNode();		
+					valueNode.put("value", v.toString());
+					arrayNode.add(v.toString());	
+				}
+				result = "\"" + pairs.getKey() + "\":" + arrayNode.toString() + ",";
+			}
+			else {
+				result = "" + pairs.getValue().toString() + ",";			
+			}							        	
+        }								
+		
+		return result;
+	}	
+	public void updateChangedDate() {
+    	Calendar calendar = GregorianCalendar.getInstance();
+    	mTimeStamp = calendar.getTimeInMillis();
+    	mChangedDate = "" + mTimeStamp/1000;		
+	}
+		
 	public void add(String tag, float value) {
 		mItemsMap.put(tag.toLowerCase(), value);
 	}
@@ -408,8 +522,6 @@ public class DataOutPacket implements Serializable {
 	    allKeys.addAll(map2.keySet());	
 	    
 	    for (String key : allKeys) {
-//	    	Log.i(TAG, "checking key " + key);
-	    	
 	    	// For now ignore drupal id since the remote version might no have it
 	    	if (key.equalsIgnoreCase("drupal_nid")) {
 	    		continue;
@@ -419,7 +531,6 @@ public class DataOutPacket implements Serializable {
 	    		if (ignoreList.contains(key.toLowerCase()))
 	    			continue;
 	    	}
-	    	
 	    	
 	    	Object s1 = (Object) map1.get(key.toLowerCase());
 	    	Object s2 = (Object) map2.get(key.toLowerCase());
@@ -521,6 +632,9 @@ public class DataOutPacket implements Serializable {
 		return true;
 	}
 	
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
 	public String toString() {
 		String result = "";
 		
@@ -554,5 +668,4 @@ public class DataOutPacket implements Serializable {
 		    }		
 		return result;
 	}
-
 }

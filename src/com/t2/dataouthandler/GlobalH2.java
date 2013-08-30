@@ -39,6 +39,10 @@ public class GlobalH2 {
 	public static final int CACHE_SENDING = 1;	
 	public static final int CACHE_DELETING = 2;	
 	public static final int CACHE_SENT = 3;	
+	
+
+	public static final int LOG_FORMAT_JSON = 1;	
+	public static final int LOG_FORMAT_FLAT = 2;		
 
 	
 	public static final String[] VALID_DATA_TYPES = new String[] {
@@ -62,8 +66,7 @@ public class GlobalH2 {
 		else
 			return false;
 	}
-	
-	
+
 	public static boolean isValidRecordType(String type) {
 		
 		
@@ -78,5 +81,3 @@ public class GlobalH2 {
 		return false;
 	}	
 }
-
-

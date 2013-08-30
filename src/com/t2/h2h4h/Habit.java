@@ -1,4 +1,36 @@
-package com.t2.dataouthandler;
+/*****************************************************************
+Habit
+
+Copyright (C) 2011-2013 The National Center for Telehealth and 
+Technology
+
+Eclipse Public License 1.0 (EPL-1.0)
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the Eclipse Public License as
+published by the Free Software Foundation, version 1.0 of the 
+License.
+
+The Eclipse Public License is a reciprocal license, under 
+Section 3. REQUIREMENTS iv) states that source code for the 
+Program is available from such Contributor, and informs licensees 
+how to obtain it in a reasonable manner on or through a medium 
+customarily used for software exchange.
+
+Post your updates and modifications to our GitHub or email to 
+t2@tee2.org.
+
+This library is distributed WITHOUT ANY WARRANTY; without 
+the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+PARTICULAR PURPOSE.  See the Eclipse Public License 1.0 (EPL-1.0)
+for more details.
+ 
+You should have received a copy of the Eclipse Public License
+along with this library; if not, 
+visit http://www.opensource.org/licenses/EPL-1.0
+
+*****************************************************************/
+package com.t2.h2h4h;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -8,17 +40,28 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 
+import com.t2.dataouthandler.DataOutHandlerTags;
+import com.t2.dataouthandler.DataOutPacket;
 import com.t2.drupalsdk.DrupalUtils;
 
+/**
+ * Encapsulates all parameters having to do with a Habit 
+ * @author scott.coleman
+ *
+ */
 public class Habit {
 	
 	DataOutPacket mDataOutPacket;
-	
 
 	public Habit(DataOutPacket dataOutPacket) {
 		mDataOutPacket = dataOutPacket;
 	}
 	
+	/**
+	 * Serializes the contents of this Habit in Drupal format
+	 * 
+	 * @return String version of drupalized Habit
+	 */	
 	public String drupalize() {
 		ObjectNode item = JsonNodeFactory.instance.objectNode();
 		item.put("title", mDataOutPacket.mTitle);
@@ -47,8 +90,6 @@ public class Habit {
 	        		continue;
 	        	}	        	
 	        	
-	        	
-	        	
 	        	// Special case for title and habit id it needs to be a primary key
 	        	if (	
 	        			key.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE_HABIT)	) {
@@ -61,11 +102,8 @@ public class Habit {
 	        		DrupalUtils.putDrupalFieldNode((String)pairs.getKey(), (String)pairs.getValue(), item);								        	
 	        	}
 	        }
-									
-			
 		} // End while (it.hasNext())		
 		
 		return item.toString();
 	}
-
 }
