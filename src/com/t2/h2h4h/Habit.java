@@ -32,6 +32,7 @@ visit http://www.opensource.org/licenses/EPL-1.0
 *****************************************************************/
 package com.t2.h2h4h;
 
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -43,6 +44,8 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 import com.t2.dataouthandler.DataOutHandler;
@@ -60,16 +63,26 @@ public class Habit {
 	private static final String TAG = Habit.class.getName();	
 	
 	// Data contract fields - Primary 
-	String mTitle;
+	public String mTitle;
 
 	// Data contract fields - Secondary 
-	String mNote;
-	String mReminderTimeUnix;
-
+	public String mNote;
 	Date mReminderTime;
-	DataOutPacket mDataOutPacket;
+
+	
+	// Internal fields
+	private  String mReminderTimeUnix;
+	private DataOutPacket mDataOutPacket;
 	
 	
+	/**
+	 * Creates a new Habit given it's  parts 
+	 * 
+	 * @param title
+	 * @param note
+	 * @param reminderTime
+	 * @throws DataOutHandlerException
+	 */
 	public Habit(String title, String note, Date reminderTime) throws DataOutHandlerException {
 		DataOutHandler sDataOutHandler;		
 		
@@ -84,20 +97,50 @@ public class Habit {
 		long currentTime = calendar.getTimeInMillis();	
 		mReminderTimeUnix = String.valueOf(currentTime / 1000);
 		
-				
-		
 		mDataOutPacket = new DataOutPacket(DataOutHandlerTags.STRUCTURE_TYPE_HABIT);
 		mDataOutPacket.mTitle = title;		
 		mDataOutPacket.add(DataOutHandlerTags.HABIT_NOTE, note);		
 		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, mReminderTimeUnix);		
 		
 		sDataOutHandler.handleDataOut(mDataOutPacket);
-		
 	}
 	
+	/**
+	 * Creates a habit out of a DataOutPacket (of type habit)
+	 * @param dataOutPacket DataOutPacket to create habit from 
+	 */
 	public Habit(DataOutPacket dataOutPacket) {
 		mDataOutPacket = dataOutPacket;
 		mTitle = mDataOutPacket.mTitle;
+		
+		Iterator it = dataOutPacket.mItemsMap.entrySet().iterator();
+	    while (it.hasNext()) {
+	        Map.Entry pairs = (Map.Entry)it.next();
+	        
+	        String key = (String) pairs.getKey();
+	        
+	        if (key.equalsIgnoreCase(DataOutHandlerTags.HABIT_NOTE)) {
+	        	mNote = (String) pairs.getValue();
+	        }
+	        
+	        if (key.equalsIgnoreCase(DataOutHandlerTags.HABIT_REMINDER_TIME)) {
+	        	mReminderTimeUnix = (String) pairs.getValue();
+	        	
+	        	long reminderTimeMillis = 0;
+
+	        	try {
+		        	reminderTimeMillis= Long.parseLong(mReminderTimeUnix) * 1000;
+		        	reminderTimeMillis *= 1000;
+	    		} catch (NumberFormatException e1) {
+	    			Log.e(TAG, "Bad format for reminder time: " + mReminderTimeUnix + ", Needs to be unix time");
+	    			Log.e(TAG, e1.toString());
+	    		} 		        	
+
+	        	Calendar calendar = Calendar.getInstance();
+	            calendar.setTimeInMillis(reminderTimeMillis);
+	            mReminderTime = calendar.getTime();
+	        }
+	    }			
 	}
 	
 	/**
@@ -149,4 +192,23 @@ public class Habit {
 		
 		return item.toString();
 	}
+	
+	
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	public String toString() {
+		String result = "";
+		SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		String reminderTimeString;
+		if (mReminderTime == null) {
+			reminderTimeString = "[null]";
+		}
+		else {
+			reminderTimeString = dateFormatter.format(mReminderTime);
+		}
+		result += mTitle + ", " + mNote + ", " + reminderTimeString + "\n";
+		return result;
+	}
+	
 }

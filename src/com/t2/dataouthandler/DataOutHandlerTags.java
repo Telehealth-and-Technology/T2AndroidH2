@@ -121,7 +121,6 @@ public class DataOutHandlerTags {
 	public static final String DATA_TYPE = "data_type";
 	public static final String PLATFORM = "platform";
 	public static final String PLATFORM_VERSION = "platform_version";
-	public static final String DRUPAL_NODE_ID = "drupal_nid";
 	public static final String STRUCTURE_TYPE = "structure_type";
 	public static final String STRUCTURE_TYPE_SENSOR_DATA = "sensor_data";
 

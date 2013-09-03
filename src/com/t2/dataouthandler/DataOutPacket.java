@@ -75,19 +75,21 @@ public class DataOutPacket implements Serializable {
 
     // Official Record Fields
 
-	// Drupal primary keys
-	public String mTitle; 			// USED TO BE Same as mRecordId - now they are two entities
-	public String mDrupalNid = "";		// This is assigned by Drupal ("NID")
+	// Drupal primary keys - never written to sql packet - 
+	// always present regardless of remote database type
+	// These also correspond to the keys in Drupal that are present in the summary record
+	public String mTitle; 	
+	public String mRecordId = "";		// This is assigned by Drupal ("NID")
 	public String mStructureType;
 	public String mChangedDate;		//
     
-    // Primary keys
-	public String mRecordId;
+	// Additional record properties (Secondary keys)
+	public HashMap<String, Object> mItemsMap = new HashMap<String, Object>();
+	
+	// Primary keys
 	public long mTimeStamp;
 	public String mSqlPacketId;		// This is the SQLite row number
 	
-	// Additional record properties (Secondary keys)
-	public HashMap<String, Object> mItemsMap = new HashMap<String, Object>();
 
 	// Private record properties
 	public String mLoggingString;
@@ -102,7 +104,7 @@ public class DataOutPacket implements Serializable {
 
 	/**
 	 * Construct a DataOutPacket from a SQL packet
-	 * @param drupalObject
+	 * @param SqlPacket SQL packet to create from
 	 * @throws DataOutHandlerException 
 	 */
 	public DataOutPacket(SqlPacket sqlPacket) throws DataOutHandlerException {
@@ -112,12 +114,13 @@ public class DataOutPacket implements Serializable {
 		}
 		
 		this.mRecordId = sqlPacket.getRecordId();
-		this.mDrupalNid = sqlPacket.getDrupalId();
-		this.mSqlPacketId = sqlPacket.getSqlPacketId();
 		this.mChangedDate = sqlPacket.getChangedDate();
-		this.mCacheStatus = sqlPacket.getCacheStatus();
 		this.mStructureType = sqlPacket.getStructureType();
 		this.mTitle = sqlPacket.getTitle();
+
+		this.mCacheStatus = sqlPacket.getCacheStatus();
+		this.mSqlPacketId = sqlPacket.getSqlPacketId();
+		
 		
 		try {
 			JSONObject mainObject = new JSONObject(sqlPacket.getPacketJson());
@@ -163,7 +166,7 @@ public class DataOutPacket implements Serializable {
 	 *  A drupal object contains a number of primary and secondary keys
 	 *  The primary keys are in the first tier of the hierarchy and set 
 	 *  members of the dataOutPacket directly
-	 *  e.g. "nid": "1211" Sets mDrupalNid
+	 *  e.g. "nid": "1211" Sets mRecordId
 	 *  
 	 *  Secondary keys are encapsulated in a further hierarchy and are
 	 *  distinguished by having  "field_" prepended to them. These secondary
@@ -203,16 +206,10 @@ public class DataOutPacket implements Serializable {
 		
 		// Check for and add primary keys
 		try {
-			mTitle = drupalObject.getString("title");
-			mDrupalNid = drupalObject.getString("nid");
-			mStructureType = drupalObject.getString("type");
+			mRecordId = drupalObject.getString("nid");
 			mChangedDate = drupalObject.getString("changed");
-
-			// TODO: Probably not necessary - but it breaks the build if you remove them
-			// probably because of an empty itemsMap
-			add(DataOutHandlerTags.DRUPAL_NODE_ID, mDrupalNid);
-			add(DataOutHandlerTags.STRUCTURE_TYPE, mStructureType);
-		
+			mStructureType = drupalObject.getString("type");
+			mTitle = drupalObject.getString("title");
 		} catch (JSONException e1) {
 			e1.printStackTrace();
 		}
@@ -298,20 +295,21 @@ public class DataOutPacket implements Serializable {
     	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));
         String currentTimeString = dateFormatter.format(calendar.getTime());
         String simpleTimeString = simpleDateFormatter.format(calendar.getTime());
-    	mRecordId = mTimeStamp + "-" + uuid.toString();
+        mRecordId = mTimeStamp + "-" + uuid.toString();
+        
+        // For drupal we first start out with our own record id.
+        // Once it has been accepted by drupal it's assigned a
+        // drupal id which then becomes the record id
+        
+        
 //    	mChangedDate = currentTimeString;
     	mChangedDate = "" + mTimeStamp/1000;
     	mTitle = "";
-    	
-    	// For drupal we start out with the node id equal to the record id
-    	// It will be replace when drupal returns the actual node id
-    	mDrupalNid = mRecordId;     	
     	
     	// If structure type not specified, then default to sensor data
     	add(DataOutHandlerTags.STRUCTURE_TYPE, DataOutHandlerTags.STRUCTURE_TYPE_SENSOR_DATA);	    	
     	mStructureType = DataOutHandlerTags.STRUCTURE_TYPE_SENSOR_DATA;
     	
-    	add(DataOutHandlerTags.RECORD_ID, mRecordId);
     	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
     	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
     	add(DataOutHandlerTags.CHANGED_AT, simpleTimeString);
@@ -334,14 +332,16 @@ public class DataOutPacket implements Serializable {
     	mChangedDate = "" + mTimeStamp/1000;
     	
     	mRecordId = mTimeStamp + "-" + uuid.toString();
+        // For drupal we first start out with our own record id.
+        // Once it has been accepted by drupal it's assigned a
+        // drupal id which then becomes the record id
+
+    	
     	mTitle = "";
     	
-    	// For drupal we start out with the node id equal to the record id
-    	// It will be replace when drupal returns the actual node id
-    	mDrupalNid = mRecordId;     	
+	
     	
     	mStructureType = structureType;
-    	add(DataOutHandlerTags.RECORD_ID, mRecordId);
     	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
     	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
     	add(DataOutHandlerTags.CHANGED_AT, simpleTimeString);
@@ -359,7 +359,6 @@ public class DataOutPacket implements Serializable {
 		ObjectNode item = JsonNodeFactory.instance.objectNode();
 		
 		// First put any primary keys
-		item.put("title", mRecordId);
 		item.put("type", mStructureType);
 		item.put("language", "und");										
 
@@ -589,12 +588,12 @@ public class DataOutPacket implements Serializable {
 				return false;
 			}
 		}		
-		if(!ignoreList.contains("record_id")) {
-			if (!this.mRecordId.equalsIgnoreCase(packet.mRecordId)) {
-    			Log.e(TAG, "Key (" + "record_id" + ") - Unequal parameter: " + this.mTimeStamp + "!= " + packet.mTimeStamp);
-				return false;
-			}
-		}
+//		if(!ignoreList.contains("record_id")) {
+//			if (!this.mRecordId.equalsIgnoreCase(packet.mRecordId)) {
+//    			Log.e(TAG, "Key (" + "record_id" + ") - Unequal parameter: " + this.mTimeStamp + "!= " + packet.mTimeStamp);
+//				return false;
+//			}
+//		}
 
 		// This might not pass if the node id hasn't been updated yet by the dataOutHandler
 //		if (!this.mDrupalNid.equalsIgnoreCase(packet.mDrupalNid))
@@ -615,10 +614,10 @@ public class DataOutPacket implements Serializable {
 			return false;
 		}
 		
-		if (!this.mRecordId.equalsIgnoreCase(packet.mRecordId)) {
-			Log.e(TAG, "Key (" + "packet.mId" + ") - Unequal parameter: " + this.mTimeStamp + "!= " + packet.mTimeStamp);
-			return false;
-		}
+//		if (!this.mRecordId.equalsIgnoreCase(packet.mRecordId)) {
+//			Log.e(TAG, "Key (" + "packet.mId" + ") - Unequal parameter: " + this.mTimeStamp + "!= " + packet.mTimeStamp);
+//			return false;
+//		}
 
 		// This might not pass if the node id hasn't been updated yet by the dataOutHandler
 //		if (!this.mDrupalNid.equalsIgnoreCase(packet.mDrupalNid))
@@ -638,8 +637,8 @@ public class DataOutPacket implements Serializable {
 	public String toString() {
 		String result = "";
 		
+//		result += mRecordId + ", ";
 		result += mRecordId + ", ";
-		result += mDrupalNid + ", ";
 		result += mSqlPacketId + ", ";
 		result += mChangedDate + ", ";
 		result += mCacheStatus + ", ";

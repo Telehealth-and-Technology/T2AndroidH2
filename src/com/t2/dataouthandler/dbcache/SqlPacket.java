@@ -46,16 +46,22 @@ public class SqlPacket {
 
 	private static final String TAG = SqlPacket.class.getSimpleName();
 
-	// Drupal primary keys
-	private String drupalId = "";
+	
+	
+	// Drupal primary keys - never written to sql packet - 
+	// always present regardless of remote database type
+	// These also correspond to the keys in Drupal that are present in the summary record
+	private String recordId = "";
 	private String changedDate = "";			// Unix time GMT
 	private String structureType = "";
 	private String title = "";
 
-	private String sqlPacketId = "";
+	// Drupal Secondary keys
 	private String packetJson = "";
-	private String recordId = "";
 
+	private String sqlPacketId = "";
+
+	
 	private int cacheStatus = GlobalH2.CACHE_IDLE;
 
 
@@ -76,12 +82,11 @@ public class SqlPacket {
     	//Log.e(TAG, "Creating Sql packet for " + dataOutPacket.toString());
 		
 		recordId = dataOutPacket.mRecordId;
-		drupalId = dataOutPacket.mDrupalNid;
-		packetJson = dataOutPacket.toString();
-		sqlPacketId = dataOutPacket.mSqlPacketId;
 		changedDate = dataOutPacket.mChangedDate;
 		structureType = dataOutPacket.mStructureType;
+		packetJson = dataOutPacket.toString();
 		title = dataOutPacket.mTitle;
+		sqlPacketId = dataOutPacket.mSqlPacketId;
 		
 		String result = "";
 		
@@ -139,7 +144,13 @@ public class SqlPacket {
 //		        }
 		    }				
 		    try {
-				packetJson = result.substring(0, result.length()-1) + "}";
+		    	
+		    	if (result.equalsIgnoreCase("{")) {
+		    		packetJson = "{}";
+		    	}
+		    	else {
+					packetJson = result.substring(0, result.length()-1) + "}";
+		    	}
 			} catch (Exception e) {
 				Log.e(TAG, e.toString());
 				e.printStackTrace();
@@ -163,21 +174,6 @@ public class SqlPacket {
 	}
 
 
-	public String getDrupalId() {
-		return drupalId;
-	}
-
-
-	public void setDrupalId(String drupalId) {
-		this.drupalId = drupalId;
-	}
-
-
-	public void setPacket(String packetJson) {
-		this.packetJson = packetJson;
-	}
-
-
 	public String getRecordId() {
 		return recordId;
 	}
@@ -187,7 +183,12 @@ public class SqlPacket {
 		this.recordId = recordId;
 	}
 
-	
+
+	public void setPacket(String packetJson) {
+		this.packetJson = packetJson;
+	}
+
+
 	public int getCacheStatus() {
 		return cacheStatus;
 	}
@@ -205,7 +206,7 @@ public class SqlPacket {
 	}
 
 	public String toString() {
-		return "title: " + title + " structureType: " + structureType + " cacheStatus: " + cacheStatus + " packetId: " + sqlPacketId + ", recordId: " + recordId + ", drupalId: " + drupalId + ", changedDate: " + changedDate + ", packet: " + packetJson;
+		return "title: " + title + " structureType: " + structureType + " cacheStatus: " + cacheStatus + " packetId: " + sqlPacketId + ", recordId: " + recordId + ", changedDate: " + changedDate + ", packet: " + packetJson;
 	}
 
 	public String getChangedDate() {

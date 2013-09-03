@@ -93,8 +93,6 @@ import com.t2.dataouthandler.DataOutHandlerException;
 import com.t2.dataouthandler.DataOutHandlerTags;
 import com.t2.dataouthandler.GUIHelper.LoginResult;
 import com.t2.dataouthandler.T2AuthDelegate;
-import com.t2.dataouthandler.T2RestClient;
-import com.t2.dataouthandler.T2RestPacket;
 import com.t2.dataouthandler.dbcache.DbCache;
 import com.t2.dataouthandler.dbcache.SqlPacket;
 import com.t2.drupalsdk.DrupalRegistrationResponse;
@@ -1142,12 +1140,12 @@ public class DataOutHandler  implements JREngageDelegate {
 			throw new DataOutHandlerException("User is not authenticated");
 		}		
 			
-		SqlPacket sqlPacket = mDbCache.getPacketByDrupalId(dataOutPacket.mDrupalNid);
+		SqlPacket sqlPacket = mDbCache.getPacketByRecordId(dataOutPacket.mRecordId);
 		if (sqlPacket == null) {
-			throw new DataOutHandlerException("Packet DrupalNodeID " + dataOutPacket.mDrupalNid + " does not exist in Cache");
+			throw new DataOutHandlerException("Packet RecordID " + dataOutPacket.mRecordId + " does not exist in Cache");
 		}
 		else {
-			Log.d(TAG, "Updating record " + dataOutPacket.mDrupalNid);
+			Log.d(TAG, "Updating record " + dataOutPacket.mRecordId);
 //			Log.d(TAG, "Updating record " + sqlPacket.toString());
 //			Log.d(TAG, "From " + dataOutPacket.toString());
 			
@@ -1158,8 +1156,8 @@ public class DataOutHandler  implements JREngageDelegate {
 			sqlPacketNew.setSqlPacketId(sqlPacket.getSqlPacketId());
 			
 			int retVal = mDbCache.updateSqlPacket(sqlPacketNew);	
-			Log.d(TAG, "Updated: retVal = " + retVal + " drupal id = " + dataOutPacket.mDrupalNid);
-			SqlPacket updatedSqlPacketFromSql = mDbCache.getPacketByDrupalId(dataOutPacket.mDrupalNid);
+			Log.d(TAG, "Updated: retVal = " + retVal + " redordId = " + dataOutPacket.mRecordId);
+			SqlPacket updatedSqlPacketFromSql = mDbCache.getPacketByRecordId(dataOutPacket.mRecordId);
 			
 			// The timed task will take care of updating it in Drupal 
             if (mInstance.mDatabaseUpdateListener != null) {
@@ -1181,7 +1179,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		}		
 
 		if (mDatabaseEnabled) {
-			mNodeDeleteQueue.add(dataOutPacket.mDrupalNid);
+			mNodeDeleteQueue.add(dataOutPacket.mRecordId);
 			mDbCache.deletePacketFromCacheWithDeletingStatus(dataOutPacket);
 
 			// The timed task will take care of deleting it from Drupal 
@@ -1438,17 +1436,17 @@ public class DataOutHandler  implements JREngageDelegate {
 	 */
 	private void ProcessCacheThread() {
 		
-		final ArrayList<String> mDrupalNodeIdList = new ArrayList<String>();			
-		final ArrayList<String> mSqlNodeIdList;		
+		final ArrayList<String> mDrupalRecordIdList = new ArrayList<String>();			
+		final ArrayList<String> mSqlRecordIdList;		
 		
-		final HashMap<String, String> mDrupalNodeIdToDrupalChangedTime = new HashMap<String, String>();	
+		final HashMap<String, String> mDrupalRecordIdToDrupalChangedTime = new HashMap<String, String>();	
 
 		Log.d(TAG, "ProcessCacheThread()");
 		
 		// Get list of all records in the local database. This will be comared
 		// to the list of records in the drupal database
 		// in order to determine what needs to be synched
-		mSqlNodeIdList = (ArrayList<String>) mDbCache.getSqlNodeIdList();		
+		mSqlRecordIdList = (ArrayList<String>) mDbCache.getSqlNodeIdList();		
 		
         // -------------------------------------
         // Get Drupal Node Summary:
@@ -1472,18 +1470,17 @@ public class DataOutHandler  implements JREngageDelegate {
 	            	try {
 	            		String userId = (String) jObject.get("uid");
 	            		String nodeId = (String) jObject.get("nid");
-	            		String recordId = (String) jObject.get("title");
 	            		String changedTime = (String) jObject.get("changed");
 	            		String type = (String) jObject.get("type");
 
 		            	// Check to see if this is a valid record
 	            		// If so then add the record to the summary arrays
 		            	if (GlobalH2.isValidRecordType(type)) {
-		            		mDrupalNodeIdList.add(nodeId);
-			            	mDrupalNodeIdToDrupalChangedTime.put(nodeId, changedTime);
+		            		mDrupalRecordIdList.add(nodeId);
+			            	mDrupalRecordIdToDrupalChangedTime.put(nodeId, changedTime);
 
 //           				 if (VERBOSE_LOGGING) {
-//            				 Log.e(TAG, "setting Array RecordId/changed " + recordId + " =  " + changedTime);
+//            				 Log.e(TAG, "setting Array nodeId/changed " + nodeId + " =  " + changedTime);
 //        				 	}			            	
 			            	
 	            		 }
@@ -1494,8 +1491,8 @@ public class DataOutHandler  implements JREngageDelegate {
 	             }
 
         		if (VERBOSE_LOGGING) {
-   	             	Log.e(TAG, "mDrupalNodeIdList = " + mDrupalNodeIdList.toString());
-   	             	Log.e(TAG, "mSqlNodeIdList = " + mSqlNodeIdList.toString());
+   	             	Log.e(TAG, "mDrupalNodeIdList = " + mDrupalRecordIdList.toString());
+   	             	Log.e(TAG, "mSqlNodeIdList = " + mSqlRecordIdList.toString());
         		}
 			}
 	
@@ -1541,17 +1538,17 @@ public class DataOutHandler  implements JREngageDelegate {
 			 		// to the records of the remote database (mDrupalRecordIdList).
 			 		 
 			 		// Check for records in local cache but not in remote DB
-		            for (String sqlNodeId : mSqlNodeIdList) {
-		            	if (!mDrupalNodeIdList.contains(sqlNodeId)) {
+		            for (String sqlRecordId : mSqlRecordIdList) {
+		            	if (!mDrupalRecordIdList.contains(sqlRecordId)) {
 		            		
 		            		if (VERBOSE_LOGGING) {
-			        	        Log.e(TAG, "sqlNodeId: " + sqlNodeId + " - Packet exists in local Cache but not in remote DB");
+			        	        Log.e(TAG, "sqlRecordId: " + sqlRecordId + " - Packet exists in local Cache but not in remote DB");
 		            		}
 	
-		            		if (sqlNodeId == null) {
+		            		if (sqlRecordId == null) {
 		            			break;
 		            		}
-		            		SqlPacket sqlPacket = mDbCache.getPacketByDrupalId(sqlNodeId); // Since nodeId is in mSqlNodeIdList we know this will not return null
+		            		SqlPacket sqlPacket = mDbCache.getPacketByRecordId(sqlRecordId); // Since nodeId is in mSqlNodeIdList we know this will not return null
 		            		
 			            	// Exists in cache but not on on Drupal
 		        	        // Two possible cases here
@@ -1612,12 +1609,12 @@ public class DataOutHandler  implements JREngageDelegate {
 		            		// Record exists in both local cache and remote db
 		            		// Need to merge the records
 							if (VERBOSE_LOGGING) {
-								Log.e(TAG, "Record exists in both local cache and remote db: " + sqlNodeId);
+								Log.e(TAG, "Record exists in both local cache and remote db: " + sqlRecordId);
 							}
 		            		
 		            		// First see which record is most recent
 		            		try {
-								SqlPacket sqlPacket = mDbCache.getPacketByDrupalId(sqlNodeId);
+								SqlPacket sqlPacket = mDbCache.getPacketByRecordId(sqlRecordId);
 								if (sqlPacket != null) {
 									String localChangedAt = sqlPacket.getChangedDate();
 									//DateTime dtLocalChangedAt = new DateTime(localChangedAt);
@@ -1625,7 +1622,7 @@ public class DataOutHandler  implements JREngageDelegate {
 									//long lLocalChangedAt = dtLocalChangedAt.getMillis();
 									long lLocalChangedAt = Long.parseLong(localChangedAt);
 									
-									String drupalChangedAt = mDrupalNodeIdToDrupalChangedTime.get(sqlNodeId);
+									String drupalChangedAt = mDrupalRecordIdToDrupalChangedTime.get(sqlRecordId);
 //									long lDrupalChangedAt = Long.parseLong(drupalChangedAt) * 1000; 
 									long lDrupalChangedAt = Long.parseLong(drupalChangedAt); 
 	
@@ -1638,7 +1635,7 @@ public class DataOutHandler  implements JREngageDelegate {
 										else {
 											if (lDrupalChangedAt > lLocalChangedAt) {
 												Log.e(TAG, "RemoteTime is most recent - updating cache from remote");
-							        	        addPacketToCacheSync(sqlNodeId, "U");	// Grabs the packet from Drupal and updates it in the Cache        	          
+							        	        addPacketToCacheSync(sqlRecordId, "U");	// Grabs the packet from Drupal and updates it in the Cache        	          
 											}
 											else { 
 												Log.e(TAG, "localTime is most recent");
@@ -1647,7 +1644,7 @@ public class DataOutHandler  implements JREngageDelegate {
 						            			}	
 						            			
 						            			DataOutPacket dataOutPacket = new DataOutPacket(sqlPacket);
-						            			sendPacketToRemoteDbSync(dataOutPacket, "U", sqlNodeId);
+						            			sendPacketToRemoteDbSync(dataOutPacket, "U", sqlRecordId);
 											}
 										}
 									}
@@ -1661,10 +1658,10 @@ public class DataOutHandler  implements JREngageDelegate {
 		        	 }	  // end for (String id : mSqlIdList) 	
 	 
 //		             // Check for records in remote DB but not in local cache
-		             for (String drupalNodeId : mDrupalNodeIdList) {
-		            	 if (!mSqlNodeIdList.contains(drupalNodeId)) {
+		             for (String drupalRecordId : mDrupalRecordIdList) {
+		            	 if (!mSqlRecordIdList.contains(drupalRecordId)) {
 			            		if (VERBOSE_LOGGING) {
-			            			Log.e(TAG, "drupalNodeId: " + drupalNodeId + " - Packet exists in remote DB but not in local Cache");
+			            			Log.e(TAG, "drupalRecordId: " + drupalRecordId + " - Packet exists in remote DB but not in local Cache");
 			            		}
 	
 		        	          // Packet exists in remote DB but not in local Cache
@@ -1676,7 +1673,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		        	          
 		        	          boolean listContainsId = false;
 		        	          for (String id : mNodeDeleteQueue) {
-		        	        	  if (id != null && id.equalsIgnoreCase(drupalNodeId)) {
+		        	        	  if (id != null && id.equalsIgnoreCase(drupalRecordId)) {
 		        	        		  listContainsId = true;
 		        	        		  break;
 		        	        	  }
@@ -1689,7 +1686,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		        	        	  if (VERBOSE_LOGGING) {
 		        	        		  Log.e(TAG, "Case 3 - Delete packet from remote DB");
 		        	        	  }
-		        	        	  sendPacketToRemoteDbSync(null, "D", drupalNodeId);
+		        	        	  sendPacketToRemoteDbSync(null, "D", drupalRecordId);
 		        	          }
 		        	          else {
 			        	          // Packet exists in DB but not in Cache
@@ -1697,7 +1694,7 @@ public class DataOutHandler  implements JREngageDelegate {
 		        	        	  if (VERBOSE_LOGGING) {
 		        	        		  Log.e(TAG, "Case 4 - Add packet to local cache");
 		        	        	  }
-			        	          addPacketToCacheSync(drupalNodeId, "C");	// Grabs the packet from Drupal and adds it to the Cache        	          
+			        	          addPacketToCacheSync(drupalRecordId, "C");	// Grabs the packet from Drupal and adds it to the Cache        	          
 		        	          }
 		            	 }
 		             } 
@@ -1849,10 +1846,10 @@ public class DataOutHandler  implements JREngageDelegate {
 	            if (mDataoutPacket.mRecordId != null) {
 	            	SqlPacket sqlPacket = mDbCache.getPacketByRecordId(mDataoutPacket.mRecordId);
 	   				if (VERBOSE_LOGGING) {
-	   					Log.e(TAG, "setting RecordId/DrupalNodeId " + mDataoutPacket.mRecordId + ", " + drupalNodeId + " to idle");
+	   					Log.e(TAG, "setting DrupalNodeId " + mDataoutPacket.mRecordId + ", " + drupalNodeId + " to idle");
 					}
 
-	   				sqlPacket.setDrupalId(drupalNodeId);
+	   				sqlPacket.setRecordId(drupalNodeId);
 	   				
 	   				// Now set the status of the cache packet to idle
 	 				sqlPacket.setCacheStatus(GlobalH2.CACHE_IDLE);	       
@@ -1898,14 +1895,13 @@ public class DataOutHandler  implements JREngageDelegate {
      * 
      * @param jsonString
      */
-    void sendPacketToRemoteDb(final DataOutPacket dataOutPacket, final String queuedAction, final String drupalNodeId) {
+    void sendPacketToRemoteDb(final DataOutPacket dataOutPacket, final String queuedAction, final String drupalNodeIdToDelete) {
         UserServices us;
-        final String recordId;
         String jsonString = "";   
         
         if (dataOutPacket != null) {
 
-            Log.d(TAG, "sendPacketToRemoteDb(" + dataOutPacket.mDrupalNid + ")");
+            Log.d(TAG, "sendPacketToRemoteDb(" + dataOutPacket.mRecordId + ")");
 
             if (dataOutPacket.mStructureType.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN)) {
             	Checkin checkin = new Checkin(dataOutPacket);
@@ -1922,11 +1918,9 @@ public class DataOutHandler  implements JREngageDelegate {
             }
 
             //            jsonString = fred;
-            recordId = dataOutPacket.mRecordId;
         }
         else {
-            Log.d(TAG, "sendPacketToRemoteDb - deleting drupal node id  + " + drupalNodeId + ")");
-            recordId = "";
+            Log.d(TAG, "sendPacketToRemoteDb - deleting drupal node id  + " + drupalNodeIdToDelete + ")");
         }
         
 		// Check to see if we've stored a Drupal session cookie. If so then attach then to 
@@ -1958,7 +1952,7 @@ public class DataOutHandler  implements JREngageDelegate {
             public void onFinish() {
 				
 				if (queuedAction.equalsIgnoreCase("D")) {
-	                Log.d(TAG, "onFinish(" + drupalNodeId + ")");
+	                Log.d(TAG, "onFinish(" + drupalNodeIdToDelete + ")");
 				}
 				else {
 					if ( dataOutPacket != null)		
@@ -1976,10 +1970,10 @@ public class DataOutHandler  implements JREngageDelegate {
             us.NodePost(jsonString, responseHandler);
         }
         else if (queuedAction.equalsIgnoreCase("U")) {
-            us.NodePut(jsonString, responseHandler, drupalNodeId);
+            us.NodePut(jsonString, responseHandler, drupalNodeIdToDelete);
         }
         else if (queuedAction.equalsIgnoreCase("D")) {
-            us.NodeDelete(responseHandler, drupalNodeId);
+            us.NodeDelete(responseHandler, drupalNodeIdToDelete);
         }
     } 		
     
@@ -2010,12 +2004,12 @@ public class DataOutHandler  implements JREngageDelegate {
     /**
      * Retrieves the contents of the updated packet from Drupal and  updates the Cache
      * 
-     * @param drupalNodeId node id of drupal packet added
+     * @param recordId record id of drupal packet added
      */
-    void addPacketToCache(final String drupalNodeId, final String action) {
+    void addPacketToCache(final String recordId, final String action) {
         UserServices us;
         int nodeNum = 0;
-        Log.d(TAG, "addPacketToCache(" + drupalNodeId + "), action = " + action);
+        Log.d(TAG, "addPacketToCache(" + recordId + "), action = " + action);
         us = new UserServices(mServicesClient);    	
 
         JsonHttpResponseHandler responseHandler = new JsonHttpResponseHandler() {
@@ -2025,7 +2019,7 @@ public class DataOutHandler  implements JREngageDelegate {
 				
 				try {
 					String title = (String) response.get("title");
-					Log.d(TAG, "Got object (" + title + "), now adding to cache, drupalId = " + drupalNodeId);
+					Log.d(TAG, "Got object (" + title + "), now adding to cache, recordId = " + recordId);
 //					Log.d(TAG, "response = " + response);
 				} catch (JSONException e1) {
 					Log.e(TAG, e1.toString());
@@ -2042,7 +2036,7 @@ public class DataOutHandler  implements JREngageDelegate {
 					if (action.equalsIgnoreCase("C")) {
 						// Make sure to set the drupal id while adding it to the cache
 	    				synchronized(mDbCache) {
-	    					mDbCache.addPacketToCache(dataOutPacket, drupalNodeId);
+	    					mDbCache.addPacketToCache(dataOutPacket, recordId);
 	    				}						
 					}
 					else {
@@ -2094,7 +2088,7 @@ public class DataOutHandler  implements JREngageDelegate {
         };        
         
     	try {
-    		nodeNum = Integer.parseInt(drupalNodeId);
+    		nodeNum = Integer.parseInt(recordId);
             us.NodeGet(nodeNum, responseHandler);
             
 //            Log.e(TAG, "Waiting for addPacketToCacheSyncToken");
@@ -2120,7 +2114,6 @@ public class DataOutHandler  implements JREngageDelegate {
 	/**
 	 * Requests a list of DataOutPackets from the local cache
 	 * 	This version returns all data types
-	 * @param mDrupalIdMap
 	 */
 	public ArrayList<DataOutPacket> getPacketList() {
 		return mDbCache.getPacketList();
@@ -2147,21 +2140,5 @@ public class DataOutHandler  implements JREngageDelegate {
 		return mDbCache.getPacketList(whereClause);
 	}		
 	
-	/**
-	 * Gets specific packet based on record id
-	 * @param recordId - record id to use in search
-	 * @return - Packet corresponding to record id
-	 */
-	public DataOutPacket getPacketByRecordId(String recordId) {
-		SqlPacket sqlPacket = mDbCache.getPacketByRecordId(recordId); 
-		DataOutPacket dataOutpacket;
-		try {
-			dataOutpacket = new DataOutPacket(sqlPacket);
-			return dataOutpacket;
-		} catch (DataOutHandlerException e) {
-			Log.e(TAG, e.toString());
-			e.printStackTrace();
-			return null;
-		}
-	}
+
 }

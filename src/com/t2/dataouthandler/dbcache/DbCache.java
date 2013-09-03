@@ -80,42 +80,26 @@ public class DbCache {
         mServicesClient = new ServicesClient(mRemoteDatabase);
 		db = new DatabaseHelper(mContext);        
 	}
-	
-	public void removePacketFromCache(String drupalId) {
-		synchronized(db) {
-			int rowsDeleeted = db.deleteSqlPacketByDrupalId(drupalId);
-			Log.e(TAG, "rowsDeleted = " + rowsDeleeted);
-		}
-	}
-	
+
 	public void deletePacketFromCacheWithDeletingStatus(DataOutPacket dataOutPacket) {
 		synchronized(db) {
 			SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
 		    sqlPacket.setCacheStatus(GlobalH2.CACHE_DELETING);
 	
-		    db.deleteSqlPacketByDrupalId(sqlPacket.getDrupalId());
+		    db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
 		}	    
-	    
-//	    SqlPacket sqlPacketFromSql = db.getPacketByRecordId(dataOutPacket.mRecordId);	   
-//	    if (sqlPacketFromSql != null) {
-//	    	sqlPacketFromSql.setCacheStatus(SqlPacket.CACHE_DELETING);
-//	    	db.updateSqlPacket(sqlPacketFromSql);	    	
-//	    	Log.e(TAG, sqlPacketFromSql.toString());
-//	    }
-	    
-	    
 	}
 	public void deletePacketFromCache(DataOutPacket dataOutPacket) {
 		synchronized(db) {
 			SqlPacket sqlPacket = new SqlPacket(dataOutPacket);
-			db.deleteSqlPacketByDrupalId(sqlPacket.getDrupalId());
+			db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
 		}
 	}
 	
 	public void deletePacketFromCache(SqlPacket sqlPacket) {
 		synchronized(db) {
 			sqlPacket.setCacheStatus(GlobalH2.CACHE_DELETING);
-			db.deleteSqlPacketByDrupalId(sqlPacket.getDrupalId());
+			db.deleteSqlPacketByRecordId(sqlPacket.getRecordId());
 		}
 	}
 	
@@ -138,64 +122,25 @@ public class DbCache {
 		}
 	}	
 	
-	public void addPacketToCache(DataOutPacket dataOutcket, String drupalId) {
+	public void addPacketToCache(DataOutPacket dataOutcket, String recordId) {
 		SqlPacket sqlPacket = new SqlPacket(dataOutcket);
-		sqlPacket.setDrupalId(drupalId);
+		sqlPacket.setRecordId(recordId);
 		synchronized(db) {
 			db.createNewSqlPacket(sqlPacket);
 		}
 	}
 	
-	
-	public List<String> getSqlRecordIdList() {
-		ArrayList<String> cacheRecordIdList = new ArrayList<String>();
-        List<SqlPacket> packetList = db.getPacketListAsSqlPacket();
-		if (packetList != null) {
-			for (SqlPacket pkt : packetList) {
-				cacheRecordIdList.add(pkt.getRecordId());
-			}
-		}
-		return cacheRecordIdList;
-	}
-	
-
 	public List<String> getSqlNodeIdList() {
 		ArrayList<String> cacheNodeIdList = new ArrayList<String>();
         List<SqlPacket> packetList = db.getPacketListAsSqlPacket();
 		if (packetList != null) {
 			for (SqlPacket pkt : packetList) {
-				cacheNodeIdList.add(pkt.getDrupalId());
+				cacheNodeIdList.add(pkt.getRecordId());
 			}
 		}
 		return cacheNodeIdList;
 	}
 		
-	
-	
-	/**
-	 * Updates the cache records with Drupal node id's collected from the DB
-	 * @param mDrupalIdMap
-	 */
-	public void updateDrupalIds(HashMap<String, String> mDrupalIdMap) {
-		
-		synchronized(db) {		
-	        List<SqlPacket> packetList = db.getPacketListAsSqlPacket();
-			if (packetList != null) {
-				for (SqlPacket pkt : packetList) {
-					
-					String drupalNid = mDrupalIdMap.get(pkt.getRecordId());
-					//Log.e(TAG, "Checking record: " + pkt.getRecordId() + " with drupal node id: " + drupalNid);
-					if (drupalNid != null && pkt.getDrupalId() == "") {
-						Log.e(TAG, "Updating cache record: " + pkt.getRecordId() + " with drupal node id: " + drupalNid);
-						pkt.setDrupalId(drupalNid);
-						db.updateSqlPacket(pkt);
-						
-					}
-				}
-			}		
-		}
-	} // End updateDrupalIds() 
-	
 	/**
 	 * Requests a list of DataOutPackets from the local cache
 	 * @return - List of DataOutPackets in the local cache
@@ -227,18 +172,13 @@ public class DbCache {
 		}
 	}	
 	 
-	public SqlPacket getPacketByDrupalId(String drupalId) {
-		synchronized(db) {
-			return db.getPacketByDrupalId(drupalId);
-		}		
-}
-	 
-	
 	public SqlPacket getPacketByRecordId(String recordId) {
 		synchronized(db) {
 			return db.getPacketByRecordId(recordId);
 		}		
 	}
+	 
+
 	
 	public int updateSqlPacket(SqlPacket packet) {
 		synchronized(db) {
