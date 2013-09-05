@@ -48,19 +48,21 @@ public class SqlPacket {
 
 	
 	
-	// Drupal primary keys - never written to sql packet - 
+	// Drupal primary keys - 
 	// always present regardless of remote database type
 	// These also correspond to the keys in Drupal that are present in the summary record
-	private String recordId = "";
+	private String drupalId = "";
 	private String changedDate = "";			// Unix time GMT
 	private String structureType = "";
 	private String title = "";
 
 	// Drupal Secondary keys
 	private String packetJson = "";
+	private String recordId = "";
 
+
+	// Internal variables
 	private String sqlPacketId = "";
-
 	
 	private int cacheStatus = GlobalH2.CACHE_IDLE;
 
@@ -82,6 +84,7 @@ public class SqlPacket {
     	//Log.e(TAG, "Creating Sql packet for " + dataOutPacket.toString());
 		
 		recordId = dataOutPacket.mRecordId;
+		drupalId = dataOutPacket.mDrupalId;
 		changedDate = dataOutPacket.mChangedDate;
 		structureType = dataOutPacket.mStructureType;
 		packetJson = dataOutPacket.toString();
@@ -158,6 +161,8 @@ public class SqlPacket {
 	}
 	
 	
+	
+	
 	public String getPacketJson() {
 		return packetJson;
 	}
@@ -173,6 +178,16 @@ public class SqlPacket {
 		this.sqlPacketId = packetId;
 	}
 
+
+	public String getDrupalId() {
+		return drupalId;
+	}
+
+
+	public void setDrupalId(String drupalId) {
+		this.drupalId = drupalId;
+	}	
+	
 
 	public String getRecordId() {
 		return recordId;
@@ -206,7 +221,7 @@ public class SqlPacket {
 	}
 
 	public String toString() {
-		return "title: " + title + " structureType: " + structureType + " cacheStatus: " + cacheStatus + " packetId: " + sqlPacketId + ", recordId: " + recordId + ", changedDate: " + changedDate + ", packet: " + packetJson;
+		return "title: " + title + " structureType: " + structureType + " cacheStatus: " + cacheStatus + " packetId: " + sqlPacketId + ", drupalId:, " + drupalId + ", recordId: " + recordId + ", changedDate: " + changedDate + ", packet: " + packetJson;
 	}
 
 	public String getChangedDate() {
@@ -224,7 +239,4 @@ public class SqlPacket {
 	public void setStructureType(String structureType) {
 		this.structureType = structureType;
 	}
-	
-	
-
 }

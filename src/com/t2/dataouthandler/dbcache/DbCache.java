@@ -135,7 +135,7 @@ public class DbCache {
         List<SqlPacket> packetList = db.getPacketListAsSqlPacket();
 		if (packetList != null) {
 			for (SqlPacket pkt : packetList) {
-				cacheNodeIdList.add(pkt.getRecordId());
+					cacheNodeIdList.add(pkt.getDrupalId());
 			}
 		}
 		return cacheNodeIdList;
@@ -175,6 +175,12 @@ public class DbCache {
 	public SqlPacket getPacketByRecordId(String recordId) {
 		synchronized(db) {
 			return db.getPacketByRecordId(recordId);
+		}		
+	}
+	 
+	public SqlPacket getPacketByDrupalId(String nodeId) {
+		synchronized(db) {
+			return db.getPacketByDrupalId(nodeId);
 		}		
 	}
 	 

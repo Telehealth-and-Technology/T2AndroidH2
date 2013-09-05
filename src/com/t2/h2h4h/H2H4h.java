@@ -44,5 +44,25 @@ public class H2H4h {
 		return checkins;
 	}
 	
+	
+	
+	public List<Checkin> get() throws DataOutHandlerException {
+
+		ArrayList<Checkin> checkins = new ArrayList<Checkin>();
+		
+		ArrayList<DataOutPacket> habitsDOP = sDataOutHandler.getPacketList(
+				"StructureType in ("
+						+ "'" + DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN + "'"
+						+ "'" + DataOutHandlerTags.STRUCTURE_TYPE_HABIT + "'"
+								+ ")");		
+
+		for (DataOutPacket packetDOP : habitsDOP) {
+			Checkin checkin = new Checkin(packetDOP);
+			checkins.add(checkin);
+		}
+		
+		return checkins;
+	}
+		
 
 }

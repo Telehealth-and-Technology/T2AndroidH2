@@ -79,7 +79,8 @@ public class DataOutPacket implements Serializable {
 	// always present regardless of remote database type
 	// These also correspond to the keys in Drupal that are present in the summary record
 	public String mTitle; 	
-	public String mRecordId = "";		// This is assigned by Drupal ("NID")
+	public String mRecordId = "";		// This is assigned by us ex: 1377557609401-54e63797-b21c-48dc-b169-053ebd75f8a0
+	public String mDrupalId = "";		// This is assigned by Drupal ("NID")
 	public String mStructureType;
 	public String mChangedDate;		//
     
@@ -113,6 +114,7 @@ public class DataOutPacket implements Serializable {
 			throw new DataOutHandlerException("null sql packet");			
 		}
 		
+		this.mDrupalId = sqlPacket.getDrupalId();
 		this.mRecordId = sqlPacket.getRecordId();
 		this.mChangedDate = sqlPacket.getChangedDate();
 		this.mStructureType = sqlPacket.getStructureType();
@@ -206,7 +208,8 @@ public class DataOutPacket implements Serializable {
 		
 		// Check for and add primary keys
 		try {
-			mRecordId = drupalObject.getString("nid");
+			//mRecordId = drupalObject.getString("nid");
+			mDrupalId = drupalObject.getString("nid");
 			mChangedDate = drupalObject.getString("changed");
 			mStructureType = drupalObject.getString("type");
 			mTitle = drupalObject.getString("title");
@@ -299,10 +302,10 @@ public class DataOutPacket implements Serializable {
         String currentTimeString = dateFormatter.format(calendar.getTime());
         String simpleTimeString = simpleDateFormatter.format(calendar.getTime());
         mRecordId = mTimeStamp + "-" + uuid.toString();
-        
-        // For drupal we first start out with our own record id.
+    	// For drupal we first start out with our own record id.
         // Once it has been accepted by drupal it's assigned a
         // drupal id which then becomes the record id
+        mDrupalId = mRecordId; // Assigned later by Drupal server, initially it's the record id
         
         
 //    	mChangedDate = currentTimeString;
@@ -335,9 +338,11 @@ public class DataOutPacket implements Serializable {
     	mChangedDate = "" + mTimeStamp/1000;
     	
     	mRecordId = mTimeStamp + "-" + uuid.toString();
-        // For drupal we first start out with our own record id.
+
+    	// For drupal we first start out with our own record id.
         // Once it has been accepted by drupal it's assigned a
         // drupal id which then becomes the record id
+        mDrupalId = mRecordId; // Assigned later by Drupal server, initially it's the record id
 
     	
     	mTitle = "";
@@ -363,7 +368,8 @@ public class DataOutPacket implements Serializable {
 		
 		// First put any primary keys
 		item.put("type", mStructureType);
-		item.put("language", "und");										
+		item.put("language", "und");	
+		item.put("title", mTitle);		
 
 		Iterator it = mItemsMap.entrySet().iterator();
 		while (it.hasNext()) {
