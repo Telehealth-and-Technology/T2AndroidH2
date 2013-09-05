@@ -33,10 +33,12 @@ visit http://www.opensource.org/licenses/EPL-1.0
 package com.t2.h2h4h;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
@@ -59,24 +61,31 @@ import com.t2.drupalsdk.DrupalUtils;
  * @author scott.coleman
  *
  */
-public class Habit {
+public class Habit extends DBObject {
 	private static final String TAG = Habit.class.getName();	
+
+	private DataOutHandler sDataOutHandler;		
+	
 	
 	// Data contract fields - Primary 
 	public String mTitle;
 
 	// Data contract fields - Secondary 
 	public String mNote;
-	Date mReminderTime;
+	public Date mReminderTime;
 
 	
 	// Internal fields
-	private  String mReminderTimeUnix;
+	private String mReminderTimeUnix;
 	private DataOutPacket mDataOutPacket;
+	private int HabitId;
 	
+	public String getHabitId() {
+		return mDrupalId;
+	}
 	
 	/**
-	 * Creates a new Habit given it's  parts 
+	 * Creates a new Habit given its parts 
 	 * 
 	 * @param title
 	 * @param note
@@ -84,8 +93,7 @@ public class Habit {
 	 * @throws DataOutHandlerException
 	 */
 	public Habit(String title, String note, Date reminderTime) throws DataOutHandlerException {
-		DataOutHandler sDataOutHandler;		
-		
+
 		sDataOutHandler = DataOutHandler.getInstance();			
 		
 		mTitle = title;
@@ -97,12 +105,22 @@ public class Habit {
 		long currentTime = calendar.getTimeInMillis();	
 		mReminderTimeUnix = String.valueOf(currentTime / 1000);
 		
+	    SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//    	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));   // Drupal wants normal format
+        String timeString = dateFormatter.format(calendar.getTime());			
+		
+		
 		mDataOutPacket = new DataOutPacket(DataOutHandlerTags.STRUCTURE_TYPE_HABIT);
 		mDataOutPacket.mTitle = title;		
 		mDataOutPacket.add(DataOutHandlerTags.HABIT_NOTE, note);		
-		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, mReminderTimeUnix);		
+//		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, mReminderTimeUnix);		
+		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, timeString);		
+		this.mRecordId = mDataOutPacket.mRecordId;
+		this.mDrupalId = mDataOutPacket.mRecordId;		// This will be updated to the actual drupal time by DataOutHandler once
 		
 		sDataOutHandler.handleDataOut(mDataOutPacket);
+														// the server assigns it.
+		sDataOutHandler.registerDbObject(this);
 	}
 	
 	/**
@@ -112,6 +130,9 @@ public class Habit {
 	public Habit(DataOutPacket dataOutPacket) {
 		mDataOutPacket = dataOutPacket;
 		mTitle = mDataOutPacket.mTitle;
+		
+		mRecordId = mDataOutPacket.mRecordId;
+		mDrupalId = mDataOutPacket.mRecordId;
 		
 		Iterator it = dataOutPacket.mItemsMap.entrySet().iterator();
 	    while (it.hasNext()) {
@@ -123,23 +144,24 @@ public class Habit {
 	        	mNote = (String) pairs.getValue();
 	        }
 	        
-	        if (key.equalsIgnoreCase(DataOutHandlerTags.HABIT_REMINDER_TIME)) {
-	        	mReminderTimeUnix = (String) pairs.getValue();
-	        	
-	        	long reminderTimeMillis = 0;
-
-	        	try {
-		        	reminderTimeMillis= Long.parseLong(mReminderTimeUnix) * 1000;
-		        	reminderTimeMillis *= 1000;
-	    		} catch (NumberFormatException e1) {
-	    			Log.e(TAG, "Bad format for reminder time: " + mReminderTimeUnix + ", Needs to be unix time");
-	    			Log.e(TAG, e1.toString());
-	    		} 		        	
-
-	        	Calendar calendar = Calendar.getInstance();
-	            calendar.setTimeInMillis(reminderTimeMillis);
-	            mReminderTime = calendar.getTime();
-	        }
+	        // TODO: REminder time fix
+//	        if (key.equalsIgnoreCase(DataOutHandlerTags.HABIT_REMINDER_TIME)) {
+//	        	mReminderTimeUnix = (String) pairs.getValue();
+//	        	
+//	        	long reminderTimeMillis = 0;
+//
+//	        	try {
+//		        	reminderTimeMillis= Long.parseLong(mReminderTimeUnix) * 1000;
+//		        	reminderTimeMillis *= 1000;
+//	    		} catch (NumberFormatException e1) {
+//	    			Log.e(TAG, "Bad format for reminder time: " + mReminderTimeUnix + ", Needs to be unix time");
+//	    			Log.e(TAG, e1.toString());
+//	    		} 		        	
+//
+//	        	Calendar calendar = Calendar.getInstance();
+//	            calendar.setTimeInMillis(reminderTimeMillis);
+//	            mReminderTime = calendar.getTime();
+//	        }
 	    }			
 	}
 	
@@ -181,8 +203,18 @@ public class Habit {
 	        			key.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE_HABIT)	) {
 	        		item.put(key, (String)pairs.getValue());
 	        	}
-	        	else if (key.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_CHECKIN_TIME)) {
-	        		DrupalUtils.putDrupalCheckinFieldNode((String)pairs.getKey(), (String)pairs.getValue(), item);
+//	        	else if (key.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_CHECKIN_TIME)) {
+		        	else if (key.equalsIgnoreCase(DataOutHandlerTags.HABIT_REMINDER_TIME)) {
+	        		// TODO: change when server changese it's server time
+	        		String timeString = (String)pairs.getValue();
+//	        	    Long milliSeconds = Long.parseLong(unixTime) * 1000;
+//		        	Date dtReminder = new Date(milliSeconds);
+//		        	
+//	        		SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-mm-dd HH:mm"); // Ex: 2013-09-04 23:29:05
+//	        		String timeString = dateFormatter.format(dtReminder);
+	        		
+	        		DrupalUtils.putDrupalCheckinFieldNode((String)pairs.getKey(), timeString, item);
+//	        		DrupalUtils.putDrupalFieldNode((String)pairs.getKey(), timeString, item);								        	
 	        	}
 	        	else {
 	        		DrupalUtils.putDrupalFieldNode((String)pairs.getKey(), (String)pairs.getValue(), item);								        	
@@ -207,8 +239,25 @@ public class Habit {
 		else {
 			reminderTimeString = dateFormatter.format(mReminderTime);
 		}
-		result += mTitle + ", " + mNote + ", " + reminderTimeString + "\n";
+		result += "mTitle: " + mTitle + ", mNote: " + mNote + ", reminder: " + reminderTimeString + ", recordId: " + mRecordId + ", drupalId: " + mDrupalId + "\n";
 		return result;
 	}
+
+	public List<Checkin> getCheckins() throws DataOutHandlerException {
+
+		ArrayList<Checkin> checkins = new ArrayList<Checkin>();
+		
+		ArrayList<DataOutPacket> habitsDOP = sDataOutHandler.getPacketList("StructureType in ('" + DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN + "')");		
+
+		for (DataOutPacket packetDOP : habitsDOP) {
+			Checkin checkin = new Checkin(packetDOP);
+			checkins.add(checkin);
+		}
+		
+		return checkins;
+	}	
+	
+	
+	
 	
 }

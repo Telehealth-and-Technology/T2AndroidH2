@@ -32,6 +32,10 @@ visit http://www.opensource.org/licenses/EPL-1.0
 *****************************************************************/
 package com.t2.h2h4h;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Vector;
@@ -40,6 +44,10 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 
+import android.util.Log;
+
+import com.t2.dataouthandler.DataOutHandler;
+import com.t2.dataouthandler.DataOutHandlerException;
 import com.t2.dataouthandler.DataOutHandlerTags;
 import com.t2.dataouthandler.DataOutPacket;
 import com.t2.drupalsdk.DrupalUtils;
@@ -49,12 +57,94 @@ import com.t2.drupalsdk.DrupalUtils;
  * @author scott.coleman
  *
  */
-public class Checkin {
+public class Checkin extends DBObject{
 	
-	DataOutPacket mDataOutPacket;
+	private static final String TAG = Checkin.class.getName();	
+	
+	
+	// Data contract fields - Primary
+	public String mTitle;	
 
+	// Data contract fields - Secondary 
+	public Date mCheckinTime;
+	public String mHabitId;
+
+	
+	// Internal fields	
+	private String mCheckinTimeUnix;		
+	private Habit mHabit;
+	private DataOutPacket mDataOutPacket;
+	
+
+	public Checkin(Habit habit, String title, Date checkinTime) {
+
+		DataOutHandler sDataOutHandler;		
+		try {
+			sDataOutHandler = DataOutHandler.getInstance();
+			mHabit = habit;
+			mTitle = title;
+			mCheckinTime = checkinTime;
+			
+			Calendar calendar = GregorianCalendar.getInstance();
+			calendar.setTime(mCheckinTime);
+			long currentTime = calendar.getTimeInMillis();	
+			mCheckinTimeUnix = String.valueOf(currentTime / 1000);		
+			
+		    SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//	    	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));   // Drupal wants normal format
+	        String timeString = dateFormatter.format(calendar.getTime());		
+			
+			mDataOutPacket = new DataOutPacket(DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN);
+			mDataOutPacket.mTitle = title;		
+//			mDataOutPacket.add(DataOutHandlerTags.CHECKIN_CHECKIN_TIME, mCheckinTimeUnix);		
+			mDataOutPacket.add(DataOutHandlerTags.CHECKIN_CHECKIN_TIME, timeString);		
+			this.mRecordId = mDataOutPacket.mRecordId;
+			this.mDrupalId = mDataOutPacket.mRecordId;		// This will be updated to the actual drupal time by DataOutHandler once
+			mDataOutPacket.add(DataOutHandlerTags.CHECKIN_HABIT_ID, mDrupalId);		
+			
+			sDataOutHandler.handleDataOut(mDataOutPacket);
+															// the server assigns it.
+			
+			sDataOutHandler.registerDbObject(this);		
+		
+		
+		} catch (DataOutHandlerException e) {
+			Log.e(TAG, e.toString());
+			e.printStackTrace();
+		}			
+		
+
+		
+		
+	}
+	
+	
+	/**
+	 * Creates a Checkin out of a DataOutPacket (of type Checkin)
+	 * @param dataOutPacket DataOutPacket to create Checkin from 
+	 */
 	public Checkin(DataOutPacket dataOutPacket) {
 		mDataOutPacket = dataOutPacket;
+		mTitle = mDataOutPacket.mTitle;
+		
+		mRecordId = mDataOutPacket.mRecordId;
+		mDrupalId = mDataOutPacket.mRecordId;
+		
+		Iterator it = dataOutPacket.mItemsMap.entrySet().iterator();
+	    while (it.hasNext()) {
+	        Map.Entry pairs = (Map.Entry)it.next();
+	        
+	        String key = (String) pairs.getKey();
+	        
+//	        if (key.equalsIgnoreCase(DataOutHandlerTags.h)) {
+//	        	mHabitId = (String) pairs.getValue();
+//	        }
+	        
+	        // TODO: REminder time fix
+	        if (key.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_CHECKIN_TIME)) {
+//	        	mCheckinTime = xxx;
+	        }
+	    }		
 	}
 	
 	/**
@@ -108,4 +198,12 @@ public class Checkin {
 		
 		return item.toString();
 	}
+	
+	public String toString() {
+		String result = "";
+		result += "mTitle: " + mTitle + ", mHabitId: " + mHabitId + ", checkinTime: " + mCheckinTime + ", recordId: " + mRecordId + ", drupalId: " + mDrupalId + "\n";
+		return result;
+	}
+	
+	
 }

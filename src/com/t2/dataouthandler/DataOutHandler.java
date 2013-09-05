@@ -100,6 +100,7 @@ import com.t2.drupalsdk.DrupalUtils;
 import com.t2.drupalsdk.ServicesClient;
 import com.t2.drupalsdk.UserServices;
 import com.t2.h2h4h.Checkin;
+import com.t2.h2h4h.DBObject;
 import com.t2.h2h4h.Habit;
 
 /**
@@ -164,6 +165,12 @@ public class DataOutHandler  implements JREngageDelegate {
 	
 	public void setRequiresCSRF(boolean requiresCSRF) {
 		mRequiresCSRF = requiresCSRF;
+	}
+	
+	private List<DBObject> mDBObjects = new ArrayList<DBObject>();
+	
+	public void registerDbObject(DBObject object) {
+		mDBObjects.add(object);
 	}
 	
 	/**
@@ -694,6 +701,13 @@ public class DataOutHandler  implements JREngageDelegate {
 
 		mDispatchThread.start();		
 	}	
+	
+	public DataOutPacket getPacketByRecordId(String recordId) throws DataOutHandlerException {
+		SqlPacket sqlPacket = mDbCache.getPacketByRecordId(recordId);
+		DataOutPacket doPacket = new DataOutPacket(sqlPacket);
+		return doPacket;
+	}	
+	
 	
 	/**
 	 * Formats mRemoteDatabase, and mEngageTokenUrl with proper database names (with defaults if blank)
@@ -1848,6 +1862,13 @@ public class DataOutHandler  implements JREngageDelegate {
 	   				if (VERBOSE_LOGGING) {
 	   					Log.e(TAG, "setting DrupalNodeId " + mDataoutPacket.mRecordId + ", " + drupalNodeId + " to idle");
 					}
+	   				
+	   				
+	   				for (DBObject object : mDBObjects) {
+	   					if (object.mRecordId.equalsIgnoreCase(mDataoutPacket.mRecordId)) {
+	   						object.mDrupalId = drupalNodeId;
+	   					}
+	   				}
 
 	   				sqlPacket.setRecordId(drupalNodeId);
 	   				
@@ -1906,15 +1927,18 @@ public class DataOutHandler  implements JREngageDelegate {
             if (dataOutPacket.mStructureType.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN)) {
             	Checkin checkin = new Checkin(dataOutPacket);
             	jsonString = checkin.drupalize();
+//            	Log.e(TAG, jsonString);
             	
             }
             else if (dataOutPacket.mStructureType.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE_HABIT)) {
-            	Habit checkin = new Habit(dataOutPacket);
-            	jsonString = checkin.drupalize();
+            	Habit habit = new Habit(dataOutPacket);
+            	jsonString = habit.drupalize();
+//            	Log.e(TAG, jsonString);
             	
             }
             else {
                 jsonString = dataOutPacket.drupalize();
+//            	Log.e(TAG, jsonString);
             }
 
             //            jsonString = fred;
@@ -2141,4 +2165,23 @@ public class DataOutHandler  implements JREngageDelegate {
 	}		
 	
 
+	public ArrayList<DataOutPacket> getCheckinsForHabit(Habit habit) {
+		
+		// First get all checkins
+		ArrayList<DataOutPacket> list = mDbCache.getPacketList("StructureType in ('" + DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN + "')");
+		
+		// Now pick out only checks for given habit
+		ArrayList<DataOutPacket> checkinList = new ArrayList<DataOutPacket>(); 
+		
+//		for (DataOutPacket packet : list) {
+//			if (packet.) {
+//				
+//			}
+//		}
+		
+		return checkinList;
+	}
+	
+	
+	
 }

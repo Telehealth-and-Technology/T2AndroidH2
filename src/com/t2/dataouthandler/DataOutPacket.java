@@ -251,7 +251,10 @@ public class DataOutPacket implements Serializable {
 			            		itemValue = obj3.getString("value");
 			            		itemKey = key.substring(6, key.length()); // Remove the field_
 					            
-
+			            		// TODO: reminder time fix
+			            		if (itemKey.equalsIgnoreCase(DataOutHandlerTags.HABIT_REMINDER_TIME)) {
+			            		
+			            		} else 
 			            		if (itemKey.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_CHECKIN_TIME)) {
 			            			Log.e(TAG, "bad time: " + itemValue);
 			            			// Special case for checkin time. since Drupal sends it to us in a wonky way

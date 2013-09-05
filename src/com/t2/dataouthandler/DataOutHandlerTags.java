@@ -130,7 +130,7 @@ public class DataOutHandlerTags {
 	public static final String STRUCTURE_TYPE_HABIT = "habit";
 	public static final String HABIT_NAME = "name";
 	public static final String HABIT_REMINDER_TIME = "reminder_time";
-	public static final String HABIT_NOTE = "habit_note";
+	public static final String HABIT_NOTE = "note";
 
 	public static final String STRUCTURE_TYPE_CHECKIN = "check_in";
 	public static final String STRUCTURE_TYPE_CHECKIN_H4H = "check_in";

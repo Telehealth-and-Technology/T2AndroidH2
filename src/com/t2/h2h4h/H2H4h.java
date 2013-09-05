@@ -10,7 +10,7 @@ import com.t2.dataouthandler.DataOutPacket;
 
 
 public class H2H4h {
-	DataOutHandler sDataOutHandler;
+	private DataOutHandler sDataOutHandler;
 	
 	public H2H4h() throws DataOutHandlerException {
 		sDataOutHandler = DataOutHandler.getInstance();	
@@ -28,6 +28,20 @@ public class H2H4h {
 		}
 		
 		return habits;
+	}
+	
+	public List<Checkin> getCheckins() throws DataOutHandlerException {
+
+		ArrayList<Checkin> checkins = new ArrayList<Checkin>();
+		
+		ArrayList<DataOutPacket> habitsDOP = sDataOutHandler.getPacketList("StructureType in ('" + DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN + "')");		
+
+		for (DataOutPacket packetDOP : habitsDOP) {
+			Checkin checkin = new Checkin(packetDOP);
+			checkins.add(checkin);
+		}
+		
+		return checkins;
 	}
 	
 
