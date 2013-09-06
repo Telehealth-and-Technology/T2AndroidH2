@@ -74,17 +74,17 @@ public class DataOutPacket implements Serializable {
     private SimpleDateFormat simpleDateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");    
 
     // Official Record Fields
-
-	// Drupal primary keys - never written to sql packet - 
+	// Drupal primary keys  
 	// always present regardless of remote database type
 	// These also correspond to the keys in Drupal that are present in the summary record
+    // Data contract fields - Primary
 	public String mTitle; 	
 	public String mRecordId = "";		// This is assigned by us ex: 1377557609401-54e63797-b21c-48dc-b169-053ebd75f8a0
 	public String mDrupalId = "";		// This is assigned by Drupal ("NID")
 	public String mStructureType;
 	public String mChangedDate;		//
     
-	// Additional record properties (Secondary keys)
+    // Data contract fields - Secondary
 	public HashMap<String, Object> mItemsMap = new HashMap<String, Object>();
 	
 	// Primary keys
@@ -92,7 +92,7 @@ public class DataOutPacket implements Serializable {
 	public String mSqlPacketId;		// This is the SQLite row number
 	
 
-	// Private record properties
+	// Internal record properties
 	public String mLoggingString;
 	public String mQueuedAction = "C";		// Assume all actions are Create unless specifically set otherwise
 	

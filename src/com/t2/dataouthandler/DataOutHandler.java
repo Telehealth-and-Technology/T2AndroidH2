@@ -1902,7 +1902,13 @@ public class DataOutHandler  implements JREngageDelegate {
 	   				
 	   				// Now set the status of the cache packet to idle
 	 				sqlPacket.setCacheStatus(GlobalH2.CACHE_IDLE);	       
-					mDbCache.updateSqlPacket(sqlPacket);	            	
+					mDbCache.updateSqlPacket(sqlPacket);	
+					
+		        	if (mDatabaseUpdateListener != null) {
+		        		mDatabaseUpdateListener.remoteDatabaseCreateUpdateComplete(mDataoutPacket);
+		        	}						
+					
+					
 	            }
 			} catch (JSONException e) {
 				Log.e(TAG, e.toString());
@@ -1955,18 +1961,15 @@ public class DataOutHandler  implements JREngageDelegate {
             if (dataOutPacket.mStructureType.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN)) {
             	Checkin checkin = new Checkin(dataOutPacket);
             	jsonString = checkin.drupalize();
-//            	Log.e(TAG, jsonString);
             	
             }
             else if (dataOutPacket.mStructureType.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE_HABIT)) {
             	Habit habit = new Habit(dataOutPacket);
             	jsonString = habit.drupalize();
-//            	Log.e(TAG, jsonString);
             	
             }
             else {
                 jsonString = dataOutPacket.drupalize();
-//            	Log.e(TAG, jsonString);
             }
 
             //            jsonString = fred;
@@ -1975,7 +1978,10 @@ public class DataOutHandler  implements JREngageDelegate {
             Log.d(TAG, "sendPacketToRemoteDb - deleting drupal node id  + " + drupalNodeIdToDelete + ")");
         }
         
-		// Check to see if we've stored a Drupal session cookie. If so then attach then to 
+    	Log.e(TAG, "Sending JsonString = " + jsonString);
+
+        
+        // Check to see if we've stored a Drupal session cookie. If so then attach then to 
         // the http client.
         // Note: if logged in as traditional there will be no explicit store of the session cookie
         // (It's done automagically) so skip this

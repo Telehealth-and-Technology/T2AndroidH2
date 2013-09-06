@@ -61,14 +61,15 @@ import com.t2.drupalsdk.DrupalUtils;
  * @author scott.coleman
  *
  */
-public class Habit extends DBObject {
+//public class Habit extends DBObject {
+public class Habit extends DataOutPacket {
 	private static final String TAG = Habit.class.getName();	
 
 	private DataOutHandler sDataOutHandler;		
 	
 	
 	// Data contract fields - Primary 
-	public String mTitle;
+//	public String mTitle;	// Contained in DataOutPacket
 
 	// Data contract fields - Secondary 
 	public String mNote;
@@ -77,7 +78,7 @@ public class Habit extends DBObject {
 	
 	// Internal fields
 	private String mReminderTimeUnix;
-	private DataOutPacket mDataOutPacket;
+//	private DataOutPacket mDataOutPacket;
 	private int HabitId;
 	
 	public String getHabitId() {
@@ -94,7 +95,9 @@ public class Habit extends DBObject {
 	 */
 	public Habit(String title, String note, Date reminderTime) throws DataOutHandlerException {
 
-		sDataOutHandler = DataOutHandler.getInstance();			
+        super(DataOutHandlerTags.STRUCTURE_TYPE_HABIT);
+
+        sDataOutHandler = DataOutHandler.getInstance();			
 		
 		mTitle = title;
 		mNote = note;
@@ -110,17 +113,23 @@ public class Habit extends DBObject {
         String timeString = dateFormatter.format(calendar.getTime());			
 		
 		
-		mDataOutPacket = new DataOutPacket(DataOutHandlerTags.STRUCTURE_TYPE_HABIT);
-		mDataOutPacket.mTitle = title;		
-		mDataOutPacket.add(DataOutHandlerTags.HABIT_NOTE, note);		
+		mTitle = title;		
+		add(DataOutHandlerTags.HABIT_NOTE, note);		
 //		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, mReminderTimeUnix);		
-		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, timeString);		
-		this.mRecordId = mDataOutPacket.mRecordId;
-		this.mDrupalId = mDataOutPacket.mRecordId;		// This will be updated to the actual drupal time by DataOutHandler once
+		add(DataOutHandlerTags.HABIT_REMINDER_TIME, timeString);		
+		sDataOutHandler.handleDataOut(this);
 		
-		sDataOutHandler.handleDataOut(mDataOutPacket);
-														// the server assigns it.
-		sDataOutHandler.registerDbObject(this);
+//		mDataOutPacket = new DataOutPacket(DataOutHandlerTags.STRUCTURE_TYPE_HABIT);
+//		mDataOutPacket.mTitle = title;		
+//		mDataOutPacket.add(DataOutHandlerTags.HABIT_NOTE, note);		
+////		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, mReminderTimeUnix);		
+//		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, timeString);		
+//		mRecordId = mDataOutPacket.mRecordId;
+//		mDrupalId = mDataOutPacket.mRecordId;		// This will be updated to the actual drupal time by DataOutHandler once
+//		sDataOutHandler.handleDataOut(mDataOutPacket);
+		
+		
+	//	sDataOutHandler.registerDbObject(this);
 	}
 	
 	/**
@@ -128,11 +137,24 @@ public class Habit extends DBObject {
 	 * @param dataOutPacket DataOutPacket to create habit from 
 	 */
 	public Habit(DataOutPacket dataOutPacket) {
-		mDataOutPacket = dataOutPacket;
-		mTitle = mDataOutPacket.mTitle;
+		//mDataOutPacket = dataOutPacket;
+		mTitle = dataOutPacket.mTitle;
+		mRecordId = dataOutPacket.mRecordId;
+		mSqlPacketId = dataOutPacket.mSqlPacketId;
+		mStructureType = dataOutPacket.mStructureType;
+		mTimeStamp = dataOutPacket.mTimeStamp;
+		mItemsMap = dataOutPacket.mItemsMap;
 		
-		mRecordId = mDataOutPacket.mRecordId;
-		mDrupalId = mDataOutPacket.mRecordId;
+		mCacheStatus = dataOutPacket.mCacheStatus;
+		mChangedDate = dataOutPacket.mChangedDate;
+		
+		mDrupalId = dataOutPacket.mDrupalId;
+		mRecordId = dataOutPacket.mRecordId;
+		
+		mLoggingString = dataOutPacket.mLoggingString;
+		mQueuedAction = dataOutPacket.mQueuedAction;
+		
+//		mDrupalId = dataOutPacket.mRecordId;
 		
 		Iterator it = dataOutPacket.mItemsMap.entrySet().iterator();
 	    while (it.hasNext()) {
@@ -172,12 +194,13 @@ public class Habit extends DBObject {
 	 */	
 	public String drupalize() {
 		ObjectNode item = JsonNodeFactory.instance.objectNode();
-		item.put("title", mDataOutPacket.mTitle);
-		item.put("type", mDataOutPacket.mStructureType);
+		item.put("title", mTitle);
+		item.put("type", mStructureType);
 		item.put("language", "und");	
 		item.put("promote", "1");	
+		item.put("changed", mChangedDate);	
 		
-		Iterator it = mDataOutPacket.mItemsMap.entrySet().iterator();
+		Iterator it = mItemsMap.entrySet().iterator();
 		while (it.hasNext()) {
 			Map.Entry pairs = (Map.Entry)it.next();	
 	        if (pairs.getValue() instanceof Integer) {
@@ -188,10 +211,11 @@ public class Habit extends DBObject {
 	        	String key = (String)pairs.getKey();
 	        	
 	        	// Skip the following keys (as per data contract)
-	        	if (	key.equalsIgnoreCase(DataOutHandlerTags.CHANGED_AT) || 
-	        			key.equalsIgnoreCase(DataOutHandlerTags.CREATED_AT) || 
+	        	if (	
+//	        			key.equalsIgnoreCase(DataOutHandlerTags.CHANGED_AT) || // This is covered in primary fields
+	        			key.equalsIgnoreCase(DataOutHandlerTags.CREATED_AT) ||  
 	        			key.equalsIgnoreCase(DataOutHandlerTags.version) || 
-//	        			key.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE) || 
+	        			key.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE) || 
 	        			key.equalsIgnoreCase(DataOutHandlerTags.PLATFORM) || 
 	        			key.equalsIgnoreCase(DataOutHandlerTags.TIME_STAMP) || 
 	        			key.equalsIgnoreCase(DataOutHandlerTags.PLATFORM_VERSION)	) {

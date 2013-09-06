@@ -57,13 +57,13 @@ import com.t2.drupalsdk.DrupalUtils;
  * @author scott.coleman
  *
  */
-public class Checkin extends DBObject{
+public class Checkin  extends DataOutPacket {
 	
 	private static final String TAG = Checkin.class.getName();	
 	
 	
 	// Data contract fields - Primary
-	public String mTitle;	
+//	public String mTitle;	// Contained in DataOutPacket
 
 	// Data contract fields - Secondary 
 	public Date mCheckinTime;
@@ -73,11 +73,11 @@ public class Checkin extends DBObject{
 	// Internal fields	
 	private String mCheckinTimeUnix;		
 	private Habit mHabit;
-	private DataOutPacket mDataOutPacket;
 	
 
 	public Checkin(Habit habit, String title, Date checkinTime) {
-
+        super(DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN);
+        
 		DataOutHandler sDataOutHandler;		
 		try {
 			sDataOutHandler = DataOutHandler.getInstance();
@@ -94,28 +94,19 @@ public class Checkin extends DBObject{
 //	    	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));   // Drupal wants normal format
 	        String timeString = dateFormatter.format(calendar.getTime());		
 			
-			mDataOutPacket = new DataOutPacket(DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN);
-			mDataOutPacket.mTitle = title;		
-//			mDataOutPacket.add(DataOutHandlerTags.CHECKIN_CHECKIN_TIME, mCheckinTimeUnix);		
-			mDataOutPacket.add(DataOutHandlerTags.CHECKIN_CHECKIN_TIME, timeString);		
-			this.mRecordId = mDataOutPacket.mRecordId;
-			this.mDrupalId = mDataOutPacket.mRecordId;		// This will be updated to the actual drupal time by DataOutHandler once
-			mDataOutPacket.add(DataOutHandlerTags.CHECKIN_HABIT_ID, mDrupalId);		
+			add(DataOutHandlerTags.CHECKIN_CHECKIN_TIME, timeString);		
+			add(DataOutHandlerTags.CHECKIN_HABIT_ID, habit.getHabitId());		
 			
-			sDataOutHandler.handleDataOut(mDataOutPacket);
-															// the server assigns it.
+			sDataOutHandler.handleDataOut(this);
+
 			
-			sDataOutHandler.registerDbObject(this);		
+//			sDataOutHandler.registerDbObject(this);		
 		
 		
 		} catch (DataOutHandlerException e) {
 			Log.e(TAG, e.toString());
 			e.printStackTrace();
 		}			
-		
-
-		
-		
 	}
 	
 	
@@ -124,11 +115,23 @@ public class Checkin extends DBObject{
 	 * @param dataOutPacket DataOutPacket to create Checkin from 
 	 */
 	public Checkin(DataOutPacket dataOutPacket) {
-		mDataOutPacket = dataOutPacket;
-		mTitle = mDataOutPacket.mTitle;
 		
-		mRecordId = mDataOutPacket.mRecordId;
-		mDrupalId = mDataOutPacket.mRecordId;
+		mTitle = dataOutPacket.mTitle;
+		mRecordId = dataOutPacket.mRecordId;
+		mDrupalId = dataOutPacket.mDrupalId;
+		mStructureType = dataOutPacket.mStructureType;
+		mChangedDate = dataOutPacket.mChangedDate;
+
+		mTimeStamp = dataOutPacket.mTimeStamp;
+		mSqlPacketId = dataOutPacket.mSqlPacketId;
+
+		mItemsMap = dataOutPacket.mItemsMap;
+		
+		mLoggingString = dataOutPacket.mLoggingString;
+		mQueuedAction = dataOutPacket.mQueuedAction;		
+		
+		mCacheStatus = dataOutPacket.mCacheStatus;
+		
 		
 		Iterator it = dataOutPacket.mItemsMap.entrySet().iterator();
 	    while (it.hasNext()) {
@@ -154,12 +157,14 @@ public class Checkin extends DBObject{
 	 */	
 	public String drupalize() {
 		ObjectNode item = JsonNodeFactory.instance.objectNode();
-		item.put("title", mDataOutPacket.mTitle);
-		item.put("type", mDataOutPacket.mStructureType);
+		item.put("title", mTitle);
+		item.put("type", mStructureType);
 		item.put("language", "und");	
 		item.put("promote", "1");	
+		item.put("changed", mChangedDate);	
 		
-		Iterator it = mDataOutPacket.mItemsMap.entrySet().iterator();
+		
+		Iterator it = mItemsMap.entrySet().iterator();
 		while (it.hasNext()) {
 			Map.Entry pairs = (Map.Entry)it.next();	
 	        if (pairs.getValue() instanceof Integer) {
@@ -170,10 +175,11 @@ public class Checkin extends DBObject{
 	        	String key = (String)pairs.getKey();
 	        	
 	        	// Skip the following keys (as per data contract)
-	        	if (	key.equalsIgnoreCase(DataOutHandlerTags.CHANGED_AT) || 
-	        			key.equalsIgnoreCase(DataOutHandlerTags.CREATED_AT) || 
+	        	if (	
+//	        			key.equalsIgnoreCase(DataOutHandlerTags.CHANGED_AT) ||  // This is covered in primary fields
+//	        			key.equalsIgnoreCase(DataOutHandlerTags.CREATED_AT) || 
 	        			key.equalsIgnoreCase(DataOutHandlerTags.version) || 
-//	        			key.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE) || 
+	        			key.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE) || 
 	        			key.equalsIgnoreCase(DataOutHandlerTags.PLATFORM) || 
 	        			key.equalsIgnoreCase(DataOutHandlerTags.TIME_STAMP) || 
 	        			key.equalsIgnoreCase(DataOutHandlerTags.PLATFORM_VERSION)	) {
