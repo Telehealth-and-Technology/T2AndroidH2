@@ -32,6 +32,11 @@ visit http://www.opensource.org/licenses/EPL-1.0
 *****************************************************************/
 package com.t2.dataouthandler;
 
+/**
+ * Exception class for DataOutHandler functions
+ * @author scott.coleman
+ *
+ */
 public class DataOutHandlerException extends Exception {
 
 	public DataOutHandlerException(String str) {

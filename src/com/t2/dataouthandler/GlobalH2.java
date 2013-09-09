@@ -49,13 +49,19 @@ public class GlobalH2 {
 		DataOutHandlerTags.STRUCTURE_TYPE_SENSOR_DATA, 
 		DataOutHandlerTags.STRUCTURE_TYPE_HABIT, 
 		DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN
-//		DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN_H4H
 		};
 	
 	
-	// A valid record id (title) looks like this:
-	// 1376345039840-4f34d60c-aa58-45fb-9da4-0aea6459dedc
-	// TimeStamp-GUID
+	/**
+	 * Checks for valid record ID  
+	 * 
+	 * A valid record id (title) looks like this:
+	 * 1376345039840-4f34d60c-aa58-45fb-9da4-0aea6459dedc
+	 * TimeStamp-GUID
+	 * 
+	 * @param recordId Record id to check
+	 * @return True if valid record id
+	 */
 	public static boolean isValidRecordId(String recordId) {
 		
 		if (recordId == null)
@@ -67,9 +73,14 @@ public class GlobalH2 {
 			return false;
 	}
 
+	/**
+	 * Checks for valid record type 
+	 * 
+	 * @See VALID_DATA_TYPES
+	 * @param type Type to check
+	 * @return True if valid record type
+	 */
 	public static boolean isValidRecordType(String type) {
-		
-		
 		if (type == null)
 				return false;
 		

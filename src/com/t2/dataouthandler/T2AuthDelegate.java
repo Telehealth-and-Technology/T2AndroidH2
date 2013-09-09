@@ -36,6 +36,11 @@ import com.janrain.android.engage.JREngageError;
 import com.janrain.android.engage.net.async.HttpResponseHeaders;
 import com.janrain.android.engage.types.JRDictionary;
 
+/**
+ * Interface for authorization callbacks
+ * @author scott.coleman
+ *
+ */
 public interface T2AuthDelegate {
 
 	void T2AuthSuccess(JRDictionary auth_info, String provider, HttpResponseHeaders responseHeaders,String responsePayload);

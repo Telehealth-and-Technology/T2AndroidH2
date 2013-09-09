@@ -68,10 +68,10 @@ abstract public class GUIHelper {
 	
 	/**
 	 * Show message.
-	 * @param context context
-	 * @param msg message
-	 * @param title message title
-	 * @param listener listener to get result
+	 * @param context cContext of calling application
+	 * @param msg Message to display
+	 * @param title Title for message box to display
+	 * @param listener Listener for results
 	 */
 	public static void showMessage(Context context, String msg, String title, final DialogResult listener) {
 		AlertDialog.Builder builder = new AlertDialog.Builder(context);
@@ -91,6 +91,13 @@ abstract public class GUIHelper {
 		dlg.show();
 	}
 	
+	/**
+	 * Shows Yes/No dialog
+	 * 
+	 * @param context Context of calling application
+	 * @param msg Message to display
+	 * @param listener Listener for results
+	 */
 	public static void showYesNo(Context context, String msg, final DialogResult listener) {
 		DialogInterface.OnClickListener clickListener = new DialogInterface.OnClickListener() {
 			@Override
@@ -115,9 +122,9 @@ abstract public class GUIHelper {
 	
 	/**
 	 * Shows dialog asking user to enter text.
-	 * @param context context
-	 * @param msg message
-	 * @param listener dialog result listener
+	 * @param context Context of calling application
+	 * @param msg message Message to display
+	 * @param listener Listener for results
 	 */
 	public static void showEnterText(Context context, String msg, final DialogResult listener) {
 		AlertDialog.Builder builder = new AlertDialog.Builder(context);
@@ -153,9 +160,10 @@ abstract public class GUIHelper {
 
 	/**
 	 * Shows dialog asking user to enter username and password.
-	 * @param context context
-	 * @param msg message
-	 * @param listener dialog result listener
+	 * 
+	 * @param context Context of calling application
+	 * @param msg Message to display
+	 * @param listener Listener for results
 	 */
 	public static void showEnterUserAndPassword(Context context, String msg, final LoginResult listener) {
 
@@ -169,8 +177,6 @@ abstract public class GUIHelper {
 		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
 		alertDialogBuilder.setMessage(msg);
 		alertDialogBuilder.setView(textEntryView);
-		
-
 		
 		final EditText userNameEditText = (EditText) textEntryView.findViewById(R.id.username_edit);
 		final EditText passwordEditText = (EditText) textEntryView.findViewById(R.id.password_edit);

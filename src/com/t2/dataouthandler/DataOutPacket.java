@@ -65,8 +65,6 @@ import com.t2.dataouthandler.DataOutHandlerTags;
 import com.t2.dataouthandler.dbcache.SqlPacket;
 import com.t2.drupalsdk.DrupalUtils;
 
-// TODO: update for all primary types
-
 public class DataOutPacket implements Serializable {
 
 	private final String TAG = getClass().getName();	
@@ -122,7 +120,6 @@ public class DataOutPacket implements Serializable {
 
 		this.mCacheStatus = sqlPacket.getCacheStatus();
 		this.mSqlPacketId = sqlPacket.getSqlPacketId();
-		
 		
 		try {
 			JSONObject mainObject = new JSONObject(sqlPacket.getPacketJson());
@@ -256,6 +253,7 @@ public class DataOutPacket implements Serializable {
 					            
 			            		// TODO: reminder time fix
 			            		if (itemKey.equalsIgnoreCase(DataOutHandlerTags.HABIT_REMINDER_TIME)) {
+				            		add(itemKey,itemValue);
 			            		
 			            		} else 
 			            		if (itemKey.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_CHECKIN_TIME)) {
@@ -646,7 +644,6 @@ public class DataOutPacket implements Serializable {
 	public String toString() {
 		String result = "";
 		
-//		result += mRecordId + ", ";
 		result += mRecordId + ", ";
 		result += mSqlPacketId + ", ";
 		result += mChangedDate + ", ";

@@ -34,9 +34,40 @@ package com.t2.dataouthandler;
 
 import java.util.HashMap;
 
+/**
+ * Interface for database cach listener functions
+ * 
+ * @author scott.coleman
+ *
+ */
 public interface DatabaseCacheUpdateListener {
+    /**
+     * Indicates that there was a failure communicating with the remote
+     * database.
+     * 
+     * @param msg Error message
+     */
     void remoteDatabaseFailure(String msg);
+    
+    /**
+     * Indicates a successful Create/Update transaction with the remote database
+     * 
+     * @param pkt Database packet which was updated.
+     */
     void remoteDatabaseCreateUpdateComplete(DataOutPacket pkt);
+
+    /**
+     * Indicates a successful Delete transaction with the remote database
+     * 
+     * @param pkt Database packet which was updated.
+     */
     void remoteDatabaseDeleteComplete(DataOutPacket pkt);
+    
+    /**
+     * Indicates a successful Sync operation with the remote database
+     *   Upon this callback, the local cache and the remote databasee
+     *   will have been synched with each other. 
+     * 
+     */
     void remoteDatabaseSyncComplete();
 }

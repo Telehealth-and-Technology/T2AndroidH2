@@ -719,6 +719,12 @@ public class DataOutHandler  implements JREngageDelegate {
 		return doPacket;
 	}	
 	
+	public DataOutPacket getPacketByDrupalId(String drupalId) throws DataOutHandlerException {
+		SqlPacket sqlPacket = mDbCache.getPacketByDrupalId(drupalId);
+		DataOutPacket doPacket = new DataOutPacket(sqlPacket);
+		return doPacket;
+	}	
+	
 	
 	/**
 	 * Formats mRemoteDatabase, and mEngageTokenUrl with proper database names (with defaults if blank)
