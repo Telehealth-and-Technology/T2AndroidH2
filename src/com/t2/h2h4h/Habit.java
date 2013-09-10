@@ -32,6 +32,20 @@ visit http://www.opensource.org/licenses/EPL-1.0
 *****************************************************************/
 package com.t2.h2h4h;
 
+import com.t2.dataouthandler.DataOutHandler;
+import com.t2.dataouthandler.DataOutHandlerException;
+import com.t2.dataouthandler.DataOutHandlerTags;
+import com.t2.dataouthandler.DataOutPacket;
+import com.t2.drupalsdk.DrupalUtils;
+
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
+import android.util.Log;
+
+import org.codehaus.jackson.node.ArrayNode;
+import org.codehaus.jackson.node.JsonNodeFactory;
+import org.codehaus.jackson.node.ObjectNode;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -41,20 +55,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
-
-import org.codehaus.jackson.node.ArrayNode;
-import org.codehaus.jackson.node.JsonNodeFactory;
-import org.codehaus.jackson.node.ObjectNode;
-
-import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
-import android.util.Log;
-
-import com.t2.dataouthandler.DataOutHandler;
-import com.t2.dataouthandler.DataOutHandlerException;
-import com.t2.dataouthandler.DataOutHandlerTags;
-import com.t2.dataouthandler.DataOutPacket;
-import com.t2.drupalsdk.DrupalUtils;
 
 /**
  * Encapsulates all parameters having to do with a Habit 
@@ -79,6 +79,10 @@ public class Habit extends DataOutPacket {
 	private String mReminderTimeUnix;
 	private int HabitId;
 	
+	/**
+	 * Gets habit ID for habit
+	 * @return Habit id
+	 */
 	public String getHabitId() {
 		return mDrupalId;
 	}
@@ -105,11 +109,6 @@ public class Habit extends DataOutPacket {
 		calendar.setTime(reminderTime);
 		long currentTime = calendar.getTimeInMillis();	
 		mReminderTimeUnix = String.valueOf(currentTime / 1000);
-		
-	    // SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-	    // dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));   // Drupal wants normal format
-        // String timeString = dateFormatter.format(calendar.getTime());			
-		
 		
 		mTitle = title;		
 		add(DataOutHandlerTags.HABIT_NOTE, note);		
@@ -150,25 +149,6 @@ public class Habit extends DataOutPacket {
 	        if (key.equalsIgnoreCase(DataOutHandlerTags.HABIT_NOTE)) {
 	        	mNote = (String) pairs.getValue();
 	        }
-	        
-	        // TODO: REminder time fix
-//	        if (key.equalsIgnoreCase(DataOutHandlerTags.HABIT_REMINDER_TIME)) {
-//	        	mReminderTimeUnix = (String) pairs.getValue();
-//	        	
-//	        	long reminderTimeMillis = 0;
-//
-//	        	try {
-//		        	reminderTimeMillis= Long.parseLong(mReminderTimeUnix) * 1000;
-//		        	reminderTimeMillis *= 1000;
-//	    		} catch (NumberFormatException e1) {
-//	    			Log.e(TAG, "Bad format for reminder time: " + mReminderTimeUnix + ", Needs to be unix time");
-//	    			Log.e(TAG, e1.toString());
-//	    		} 		        	
-//
-//	        	Calendar calendar = Calendar.getInstance();
-//	            calendar.setTimeInMillis(reminderTimeMillis);
-//	            mReminderTime = calendar.getTime();
-//	        }
 	    }			
 	}
 	
@@ -210,20 +190,11 @@ public class Habit extends DataOutPacket {
 	        	// Special case for title and habit id it needs to be a primary key
 	        	if (	
 	        			key.equalsIgnoreCase(DataOutHandlerTags.STRUCTURE_TYPE_HABIT)	) {
-	        		item.put(key, (String)pairs.getValue());
+	        			item.put(key, (String)pairs.getValue());
 	        	}
-//	        	else if (key.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_CHECKIN_TIME)) {
-		        	else if (key.equalsIgnoreCase(DataOutHandlerTags.HABIT_REMINDER_TIME)) {
-	        		// TODO: change when server changese it's server time
+		        else if (key.equalsIgnoreCase(DataOutHandlerTags.HABIT_REMINDER_TIME)) {
 	        		String timeString = (String)pairs.getValue();
-//	        	    Long milliSeconds = Long.parseLong(unixTime) * 1000;
-//		        	Date dtReminder = new Date(milliSeconds);
-//		        	
-//	        		SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-mm-dd HH:mm"); // Ex: 2013-09-04 23:29:05
-//	        		String timeString = dateFormatter.format(dtReminder);
-	        		
 	        		DrupalUtils.putDrupalCheckinFieldNode((String)pairs.getKey(), timeString, item);
-//	        		DrupalUtils.putDrupalFieldNode((String)pairs.getKey(), timeString, item);								        	
 	        	}
 	        	else {
 	        		DrupalUtils.putDrupalFieldNode((String)pairs.getKey(), (String)pairs.getValue(), item);								        	
@@ -233,7 +204,6 @@ public class Habit extends DataOutPacket {
 		
 		return item.toString();
 	}
-	
 	
 	/* (non-Javadoc)
 	 * @see java.lang.Object#toString()
@@ -252,15 +222,26 @@ public class Habit extends DataOutPacket {
 		return result;
 	}
 
+	/**
+	 * Returns checkins related to this habit
+	 * 
+	 * @return List of checkins related to habit
+	 * @throws DataOutHandlerException
+	 */
 	public List<Checkin> getCheckins() throws DataOutHandlerException {
 
 		ArrayList<Checkin> checkins = new ArrayList<Checkin>();
 		
 		ArrayList<DataOutPacket> habitsDOP = sDataOutHandler.getPacketList("StructureType in ('" + DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN + "')");		
 
-		for (DataOutPacket packetDOP : habitsDOP) {
-			Checkin checkin = new Checkin(packetDOP);
-			checkins.add(checkin);
+		if (habitsDOP != null) {
+			for (DataOutPacket packetDOP : habitsDOP) {
+				Checkin checkin = new Checkin(packetDOP);
+				
+				if (checkin.mHabitId == mDrupalId) {
+					checkins.add(checkin);
+				}
+			}
 		}
 		
 		return checkins;

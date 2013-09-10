@@ -251,30 +251,13 @@ public class DataOutPacket implements Serializable {
 			            		itemValue = obj3.getString("value");
 			            		itemKey = key.substring(6, key.length()); // Remove the field_
 					            
-			            		// TODO: reminder time fix
+			            		
+			            		// We might want to treat times differently in the future so call them out
 			            		if (itemKey.equalsIgnoreCase(DataOutHandlerTags.HABIT_REMINDER_TIME)) {
 				            		add(itemKey,itemValue);
 			            		
 			            		} else 
 			            		if (itemKey.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_CHECKIN_TIME)) {
-			            			Log.e(TAG, "bad time: " + itemValue);
-			            			// Special case for checkin time. since Drupal sends it to us in a wonky way
-			            			SimpleDateFormat  badFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");  
-			            			try {  
-			            			    Date date = new Date();
-										date = badFormat.parse(itemValue);
-				            			SimpleDateFormat  goodFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");  
-			            			    itemValue = goodFormat.format(date);
-			            			    add(itemKey,itemValue);				            			    
-				            			Log.e(TAG, "good time: " + itemValue);
-			            			    
-			            			} catch (ParseException e) {  
-			            			    e.printStackTrace();  
-			            			} catch (java.text.ParseException e) {
-										e.printStackTrace();
-									} 				            			
-			            		}
-			            		else {
 				            		add(itemKey,itemValue);
 			            		}
 

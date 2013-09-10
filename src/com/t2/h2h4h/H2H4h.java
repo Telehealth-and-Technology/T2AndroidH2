@@ -32,14 +32,13 @@ visit http://www.opensource.org/licenses/EPL-1.0
 *****************************************************************/
 package com.t2.h2h4h;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.t2.dataouthandler.DataOutHandler;
 import com.t2.dataouthandler.DataOutHandlerException;
 import com.t2.dataouthandler.DataOutHandlerTags;
 import com.t2.dataouthandler.DataOutPacket;
 
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Overall H4H class access wrapper
@@ -65,9 +64,11 @@ public class H2H4h {
 		
 		ArrayList<DataOutPacket> habitsDOP = sDataOutHandler.getPacketList("StructureType in ('" + DataOutHandlerTags.STRUCTURE_TYPE_HABIT + "')");		
 
-		for (DataOutPacket packetDOP : habitsDOP) {
-			Habit habit = new Habit(packetDOP);
-			habits.add(habit);
+		if (habitsDOP != null) {
+			for (DataOutPacket packetDOP : habitsDOP) {
+				Habit habit = new Habit(packetDOP);
+				habits.add(habit);
+			}
 		}
 		
 		return habits;
@@ -85,14 +86,15 @@ public class H2H4h {
 		
 		ArrayList<DataOutPacket> habitsDOP = sDataOutHandler.getPacketList("StructureType in ('" + DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN + "')");		
 
-		for (DataOutPacket packetDOP : habitsDOP) {
-			Checkin checkin = new Checkin(packetDOP);
-			checkins.add(checkin);
+		if (habitsDOP != null) {
+			for (DataOutPacket packetDOP : habitsDOP) {
+				Checkin checkin = new Checkin(packetDOP);
+				checkins.add(checkin);
+			}
 		}
 		
 		return checkins;
 	}
-	
 	
 	/**
 	 * Returns list of all class types in the database 
@@ -110,11 +112,13 @@ public class H2H4h {
 						+ "'" + DataOutHandlerTags.STRUCTURE_TYPE_HABIT + "'"
 								+ ")");		
 
-		for (DataOutPacket packetDOP : habitsDOP) {
-			Checkin checkin = new Checkin(packetDOP);
-			checkins.add(checkin);
-		}
-		
+		if (habitsDOP != null) {
+	
+			for (DataOutPacket packetDOP : habitsDOP) {
+				Checkin checkin = new Checkin(packetDOP);
+				checkins.add(checkin);
+			}
+		}		
 		return checkins;
 	}
 }

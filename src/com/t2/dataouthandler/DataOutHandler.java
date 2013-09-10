@@ -113,7 +113,7 @@ import com.t2.h2h4h.Habit;
 public class DataOutHandler  implements JREngageDelegate {
 					
 	private static final String TAG = DataOutHandler.class.getName();
-	private static final String VERSION_STRING = "2.3.1";
+	private static final String VERSION_STRING = "2.3.2";
 	
 	//private static final String DEFAULT_REST_DB_URL 	= "http://gap.t2health.org/and/phpWebservice/webservice2.php";	 
 	// private static final String DEFAULT_REST_DB_URL 	= "http://gap.t2health.org/and/json.php";	 

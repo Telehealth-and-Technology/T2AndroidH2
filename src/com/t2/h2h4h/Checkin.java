@@ -32,6 +32,18 @@ visit http://www.opensource.org/licenses/EPL-1.0
 *****************************************************************/
 package com.t2.h2h4h;
 
+import android.util.Log;
+
+import com.t2.dataouthandler.DataOutHandler;
+import com.t2.dataouthandler.DataOutHandlerException;
+import com.t2.dataouthandler.DataOutHandlerTags;
+import com.t2.dataouthandler.DataOutPacket;
+import com.t2.drupalsdk.DrupalUtils;
+
+import org.codehaus.jackson.node.ArrayNode;
+import org.codehaus.jackson.node.JsonNodeFactory;
+import org.codehaus.jackson.node.ObjectNode;
+
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -40,17 +52,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Vector;
 
-import org.codehaus.jackson.node.ArrayNode;
-import org.codehaus.jackson.node.JsonNodeFactory;
-import org.codehaus.jackson.node.ObjectNode;
 
-import android.util.Log;
-
-import com.t2.dataouthandler.DataOutHandler;
-import com.t2.dataouthandler.DataOutHandlerException;
-import com.t2.dataouthandler.DataOutHandlerTags;
-import com.t2.dataouthandler.DataOutPacket;
-import com.t2.drupalsdk.DrupalUtils;
 
 /**
  * Encapsulates all parameters having to do with a Checkin
@@ -60,7 +62,6 @@ import com.t2.drupalsdk.DrupalUtils;
 public class Checkin  extends DataOutPacket {
 	
 	private static final String TAG = Checkin.class.getName();	
-	
 	
 	// Data contract fields - Primary
 	//	public String mTitle;	// Contained in DataOutPacket
@@ -72,7 +73,6 @@ public class Checkin  extends DataOutPacket {
 	// Internal fields	
 	private String mCheckinTimeUnix;		
 	private Habit mHabit;
-	
 
 	public Checkin(Habit habit, String title, Date checkinTime) {
         super(DataOutHandlerTags.STRUCTURE_TYPE_CHECKIN);
@@ -97,17 +97,14 @@ public class Checkin  extends DataOutPacket {
 			add(DataOutHandlerTags.CHECKIN_HABIT_ID, habit.getHabitId());		
 			
 			sDataOutHandler.handleDataOut(this);
-
 			
 //			sDataOutHandler.registerDbObject(this);		
-		
 		
 		} catch (DataOutHandlerException e) {
 			Log.e(TAG, e.toString());
 			e.printStackTrace();
 		}			
 	}
-	
 	
 	/**
 	 * Creates a Checkin out of a DataOutPacket (of type Checkin)
@@ -131,20 +128,23 @@ public class Checkin  extends DataOutPacket {
 		
 		mCacheStatus = dataOutPacket.mCacheStatus;
 		
-		
 		Iterator it = dataOutPacket.mItemsMap.entrySet().iterator();
 	    while (it.hasNext()) {
 	        Map.Entry pairs = (Map.Entry)it.next();
 	        
 	        String key = (String) pairs.getKey();
 	        
-//	        if (key.equalsIgnoreCase(DataOutHandlerTags.h)) {
-//	        	mHabitId = (String) pairs.getValue();
-//	        }
+	        if (key.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_HABIT_ID)) {
+	        	mHabitId = (String) pairs.getValue();
+	        }
 	        
-	        // TODO: REminder time fix
 	        if (key.equalsIgnoreCase(DataOutHandlerTags.CHECKIN_CHECKIN_TIME)) {
-//	        	mCheckinTime = xxx;
+	        	try {
+					long seconds = Long.parseLong(((String) pairs.getValue()));
+					mCheckinTime = new Date(seconds * 1000);
+				} catch (NumberFormatException e) {
+					Log.e(TAG, e.toString());
+				}
 	        }
 	    }		
 	}
@@ -161,7 +161,6 @@ public class Checkin  extends DataOutPacket {
 		item.put("language", "und");	
 		item.put("promote", "1");	
 		item.put("changed", mChangedDate);	
-		
 		
 		Iterator it = mItemsMap.entrySet().iterator();
 		while (it.hasNext()) {
@@ -204,6 +203,9 @@ public class Checkin  extends DataOutPacket {
 		return item.toString();
 	}
 	
+	/* (non-Javadoc)
+	 * @see com.t2.dataouthandler.DataOutPacket#toString()
+	 */
 	public String toString() {
 		String result = "";
 		result += "mTitle: " + mTitle + ", mHabitId: " + mHabitId + ", checkinTime: " + mCheckinTime + ", recordId: " + mRecordId + ", drupalId: " + mDrupalId + "\n";
