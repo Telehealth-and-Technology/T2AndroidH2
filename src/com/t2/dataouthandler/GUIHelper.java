@@ -206,13 +206,13 @@ abstract public class GUIHelper {
 		// show it
 		alertDialog.show();	
 		
-        Button clearButton = (Button) textEntryView.findViewById(R.id.button_social_login);
-        clearButton.setOnClickListener(new View.OnClickListener() {
-			public void onClick(View v) {
-		    	listener.result(false, "", "");
-		    	alertDialog.cancel();
-		    	
-			}
-		});
+//        Button clearButton = (Button) textEntryView.findViewById(R.id.button_social_login);
+//        clearButton.setOnClickListener(new View.OnClickListener() {
+//			public void onClick(View v) {
+//		    	listener.result(false, "", "");
+//		    	alertDialog.cancel();
+//		    	
+//			}
+//		});
 	}	
 }

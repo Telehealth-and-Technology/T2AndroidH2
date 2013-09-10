@@ -153,7 +153,8 @@ public class DataOutHandler  implements JREngageDelegate {
 	public static final String DATA_TYPE_EXTERNAL_SENSOR = "ExternalSensor";
 	public static final String DATA_TYPE_USER_ENTERED_DATA = "UserEnteredData";
 	
-	public static final int SYNC_TIMEOUT = 200000;
+//	public static final int SYNC_TIMEOUT = 200000;
+	public static final int SYNC_TIMEOUT = 60000; // 60 seconds
 
 	public boolean mLogCatEnabled = false;	
 	public boolean mLoggingEnabled = false;	
@@ -623,16 +624,16 @@ public class DataOutHandler  implements JREngageDelegate {
 					mRemoteDatabase = remoteDatabase;
 				}
 				
-				// Note: for AWS we don't supply a token URL, thats
-				// only for interfacing with Drupal
-		        mEngage = JREngage.initInstance(mContext, mEngageAppId, "", this);
-
-		        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
-		        // As odd as it seems, this ensures that only one delegate gets added per instance.
-		        mEngage.removeDelegate(this);
-		        mEngage.addDelegate(this);
-		        
-		        JREngage.blockOnInitialization();
+//				// Note: for AWS we don't supply a token URL, thats
+//				// only for interfacing with Drupal
+//		        mEngage = JREngage.initInstance(mContext, mEngageAppId, "", this);
+//
+//		        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
+//		        // As odd as it seems, this ensures that only one delegate gets added per instance.
+//		        mEngage.removeDelegate(this);
+//		        mEngage.addDelegate(this);
+//		        
+//		        JREngage.blockOnInitialization();
 
 				
 				//	clientManager = new AmazonClientManager(mContext.getSharedPreferences("com.amazon.aws.demo.AWSDemo", Context.MODE_PRIVATE), mRemoteDatabase);	
@@ -654,13 +655,13 @@ public class DataOutHandler  implements JREngageDelegate {
 					mRemoteDatabase = remoteDatabase;
 				}
 				
-		        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
-		        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
-		        // As odd as it seems, this ensures that only one delegate gets added per instance.
-		        mEngage.removeDelegate(this);
-		        mEngage.addDelegate(this);
-		        
-		        JREngage.blockOnInitialization();
+//		        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
+//		        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
+//		        // As odd as it seems, this ensures that only one delegate gets added per instance.
+//		        mEngage.removeDelegate(this);
+//		        mEngage.addDelegate(this);
+//		        
+//		        JREngage.blockOnInitialization();
 			}				
 		}
 		else if (databaseTypeString.equalsIgnoreCase("T2DRUPAL")) {
@@ -669,13 +670,13 @@ public class DataOutHandler  implements JREngageDelegate {
 			mDatabaseType = DATABASE_TYPE_T2_DRUPAL;
 			initializeDrupalDatabaseNames(remoteDatabase);				
 			
-	        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
-	        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
-	        // As odd as it seems, this ensures that only one delegate gets added per instance.
-	        mEngage.removeDelegate(this);
-	        mEngage.addDelegate(this);
-	        
-	        JREngage.blockOnInitialization();
+//	        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
+//	        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
+//	        // As odd as it seems, this ensures that only one delegate gets added per instance.
+//	        mEngage.removeDelegate(this);
+//	        mEngage.addDelegate(this);
+//	        
+//	        JREngage.blockOnInitialization();
 
 	        try {
 				mServicesClient = new ServicesClient(mRemoteDatabase);
@@ -793,13 +794,13 @@ public class DataOutHandler  implements JREngageDelegate {
 
 		initializeDrupalDatabaseNames(remoteDatabase);		
 						
-        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
-        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
-        // As odd as it seems, this ensures that only one delegate gets added per instance.
-        mEngage.removeDelegate(this);
-        mEngage.addDelegate(this);
-        
-        JREngage.blockOnInitialization();
+//        mEngage = JREngage.initInstance(mContext, mEngageAppId, mEngageTokenUrl, this);
+//        // This is to account for a bug in janrain where a delegate might not get added in the initinstance call
+//        // As odd as it seems, this ensures that only one delegate gets added per instance.
+//        mEngage.removeDelegate(this);
+//        mEngage.addDelegate(this);
+//        
+//        JREngage.blockOnInitialization();
 
         try {
 			mServicesClient = new ServicesClient(mRemoteDatabase);
@@ -860,7 +861,7 @@ public class DataOutHandler  implements JREngageDelegate {
 							// Causes Janrain to initiate login activity by showing login dialog
 							// See callbacks jrAuthenticationDidReachTokenUrl() and jrAuthenticationDidSucceedForUser()
 							// to see mAuthenticated getting set
-							mEngage.showAuthenticationDialog(thisActivity);
+//							mEngage.showAuthenticationDialog(thisActivity);
 							
 						}
 					}
@@ -870,7 +871,7 @@ public class DataOutHandler  implements JREngageDelegate {
 				// Causes Janrain to initiate login activity by showing login dialog
 				// See callbacks jrAuthenticationDidReachTokenUrl() and jrAuthenticationDidSucceedForUser()
 				// to see mAuthenticated getting set
-				mEngage.showAuthenticationDialog(thisActivity);
+//				mEngage.showAuthenticationDialog(thisActivity);
 			}			
 		}		
 	}
@@ -902,7 +903,7 @@ public class DataOutHandler  implements JREngageDelegate {
 							// Causes Janrain to initiate login activity by showing login dialog
 							// See callbacks jrAuthenticationDidReachTokenUrl() and jrAuthenticationDidSucceedForUser()
 							// to see mAuthenticated getting set
-							mEngage.showAuthenticationDialog(thisActivity);
+//							mEngage.showAuthenticationDialog(thisActivity);
 							
 						}
 					}
@@ -912,7 +913,7 @@ public class DataOutHandler  implements JREngageDelegate {
 				// Causes Janrain to initiate login activity by showing login dialog
 				// See callbacks jrAuthenticationDidReachTokenUrl() and jrAuthenticationDidSucceedForUser()
 				// to see mAuthenticated getting set
-				mEngage.showAuthenticationDialog(thisActivity);
+//				mEngage.showAuthenticationDialog(thisActivity);
 			}			
 		}
 	}
@@ -951,7 +952,6 @@ public class DataOutHandler  implements JREngageDelegate {
             	Log.e(TAG, "CSRFSessionLookie = " + list.get(0).toString());
 
             	
-            	// TODO: move this to accomodate Janrain
             	if (mRequiresCSRF) {
             		if (VERBOSE_LOGGING) {
             			Log.e(TAG, "Requesting CSRF Token");
@@ -1122,9 +1122,9 @@ public class DataOutHandler  implements JREngageDelegate {
 			mDispatchThread = null;
 		}
 		
-        if (mEngage != null) {
-        	mEngage.removeDelegate(this);
-        }	mT2AuthDelegate = null;
+//        if (mEngage != null) {
+//        	mEngage.removeDelegate(this);
+//        }	mT2AuthDelegate = null;
 		mAuthenticated = false;
 	}
 	
@@ -1369,6 +1369,13 @@ public class DataOutHandler  implements JREngageDelegate {
         			Log.e(TAG, "saving session cookie: " + cookie.toString()); 
         	}			
 		}
+		
+    	if (mRequiresCSRF) {
+    		if (VERBOSE_LOGGING) {
+    			Log.e(TAG, "Requesting CSRF Token");
+    		}
+    		getCSRFToken();            		
+    	}		
 		
 		mAuthenticated = true;
 		if (mT2AuthDelegate != null) {
@@ -1802,6 +1809,20 @@ public class DataOutHandler  implements JREngageDelegate {
 	void getCSRFToken() {
         UserServices us;
         int nodeNum = 0;
+        
+        // Check to see if we've stored a Drupal session cookie. If so then attach then to 
+        // the http client.
+        // Note: if logged in as traditional there will be no explicit store of the session cookie
+        // (It's done automagically) so skip this
+        if (drupalSessionCookie != null) {
+          mCookieStore.addCookie(drupalSessionCookie);
+          mServicesClient.setCookieStore(mCookieStore);        
+
+  			if (VERBOSE_LOGGING) {
+  				Log.e(TAG, "Using session cookie: " + drupalSessionCookie.toString());
+  			}
+        }        
+        
         us = new UserServices(mServicesClient);    	
 
         AsyncHttpResponseHandler responseHandler = new AsyncHttpResponseHandler() {
@@ -1854,6 +1875,12 @@ public class DataOutHandler  implements JREngageDelegate {
 		@Override
 		public void onFailure(Throwable arg0, JSONArray arg1) {
             Log.e(TAG, arg0.toString());
+            
+            if (mDataoutPacket.mRecordId != null) {
+    			mDbCache.deletePacketFromCacheWithDeletingStatus(mDataoutPacket);            	
+            }
+            
+            
         	if (mDatabaseUpdateListener != null) {
         		mDatabaseUpdateListener.remoteDatabaseFailure(arg0.toString());
         	}

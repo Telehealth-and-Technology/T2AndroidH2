@@ -63,12 +63,11 @@ public class Checkin  extends DataOutPacket {
 	
 	
 	// Data contract fields - Primary
-//	public String mTitle;	// Contained in DataOutPacket
+	//	public String mTitle;	// Contained in DataOutPacket
 
 	// Data contract fields - Secondary 
 	public Date mCheckinTime;
 	public String mHabitId;
-
 	
 	// Internal fields	
 	private String mCheckinTimeUnix;		
@@ -91,10 +90,10 @@ public class Checkin  extends DataOutPacket {
 			mCheckinTimeUnix = String.valueOf(currentTime / 1000);		
 			
 		    SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-//	    	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));   // Drupal wants normal format
+		    //	    	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));   // Drupal wants normal format
 	        String timeString = dateFormatter.format(calendar.getTime());		
 			
-			add(DataOutHandlerTags.CHECKIN_CHECKIN_TIME, timeString);		
+			add(DataOutHandlerTags.CHECKIN_CHECKIN_TIME, mCheckinTimeUnix);		
 			add(DataOutHandlerTags.CHECKIN_HABIT_ID, habit.getHabitId());		
 			
 			sDataOutHandler.handleDataOut(this);
@@ -210,6 +209,5 @@ public class Checkin  extends DataOutPacket {
 		result += "mTitle: " + mTitle + ", mHabitId: " + mHabitId + ", checkinTime: " + mCheckinTime + ", recordId: " + mRecordId + ", drupalId: " + mDrupalId + "\n";
 		return result;
 	}
-	
 	
 }

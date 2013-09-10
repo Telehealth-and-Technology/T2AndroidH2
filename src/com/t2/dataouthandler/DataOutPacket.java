@@ -316,7 +316,8 @@ public class DataOutPacket implements Serializable {
     	
     	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
     	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
-    	add(DataOutHandlerTags.CHANGED_AT, simpleTimeString);
+    	add(DataOutHandlerTags.CHANGED_AT, mChangedDate);
+//    	add(DataOutHandlerTags.CHANGED_AT, simpleTimeString);
     	add(DataOutHandlerTags.PLATFORM, "Android");		    	
     	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);	    	
 	}
@@ -350,7 +351,8 @@ public class DataOutPacket implements Serializable {
     	mStructureType = structureType;
     	add(DataOutHandlerTags.TIME_STAMP, mTimeStamp);
     	add(DataOutHandlerTags.CREATED_AT, currentTimeString);
-    	add(DataOutHandlerTags.CHANGED_AT, simpleTimeString);
+    	add(DataOutHandlerTags.CHANGED_AT, mChangedDate);
+//    	add(DataOutHandlerTags.CHANGED_AT, simpleTimeString);
     	add(DataOutHandlerTags.PLATFORM, "Android");		    	
     	add(DataOutHandlerTags.PLATFORM_VERSION, Build.VERSION.RELEASE);	    	
     	add(DataOutHandlerTags.STRUCTURE_TYPE, structureType);	    	

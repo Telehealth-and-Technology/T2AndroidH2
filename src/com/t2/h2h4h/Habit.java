@@ -61,7 +61,6 @@ import com.t2.drupalsdk.DrupalUtils;
  * @author scott.coleman
  *
  */
-//public class Habit extends DBObject {
 public class Habit extends DataOutPacket {
 	private static final String TAG = Habit.class.getName();	
 
@@ -69,7 +68,7 @@ public class Habit extends DataOutPacket {
 	
 	
 	// Data contract fields - Primary 
-//	public String mTitle;	// Contained in DataOutPacket
+	//	public String mTitle;	// Contained in DataOutPacket
 
 	// Data contract fields - Secondary 
 	public String mNote;
@@ -78,7 +77,6 @@ public class Habit extends DataOutPacket {
 	
 	// Internal fields
 	private String mReminderTimeUnix;
-//	private DataOutPacket mDataOutPacket;
 	private int HabitId;
 	
 	public String getHabitId() {
@@ -108,28 +106,17 @@ public class Habit extends DataOutPacket {
 		long currentTime = calendar.getTimeInMillis();	
 		mReminderTimeUnix = String.valueOf(currentTime / 1000);
 		
-	    SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-//    	dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));   // Drupal wants normal format
-        String timeString = dateFormatter.format(calendar.getTime());			
+	    // SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    // dateFormatter.setTimeZone(TimeZone.getTimeZone("UTC"));   // Drupal wants normal format
+        // String timeString = dateFormatter.format(calendar.getTime());			
 		
 		
 		mTitle = title;		
 		add(DataOutHandlerTags.HABIT_NOTE, note);		
-//		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, mReminderTimeUnix);		
-		add(DataOutHandlerTags.HABIT_REMINDER_TIME, timeString);		
+		add(DataOutHandlerTags.HABIT_REMINDER_TIME, mReminderTimeUnix);		
 		sDataOutHandler.handleDataOut(this);
-		
-//		mDataOutPacket = new DataOutPacket(DataOutHandlerTags.STRUCTURE_TYPE_HABIT);
-//		mDataOutPacket.mTitle = title;		
-//		mDataOutPacket.add(DataOutHandlerTags.HABIT_NOTE, note);		
-////		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, mReminderTimeUnix);		
-//		mDataOutPacket.add(DataOutHandlerTags.HABIT_REMINDER_TIME, timeString);		
-//		mRecordId = mDataOutPacket.mRecordId;
-//		mDrupalId = mDataOutPacket.mRecordId;		// This will be updated to the actual drupal time by DataOutHandler once
-//		sDataOutHandler.handleDataOut(mDataOutPacket);
-		
-		
-	//	sDataOutHandler.registerDbObject(this);
+
+		//	sDataOutHandler.registerDbObject(this);
 	}
 	
 	/**
@@ -153,8 +140,6 @@ public class Habit extends DataOutPacket {
 		
 		mLoggingString = dataOutPacket.mLoggingString;
 		mQueuedAction = dataOutPacket.mQueuedAction;
-		
-//		mDrupalId = dataOutPacket.mRecordId;
 		
 		Iterator it = dataOutPacket.mItemsMap.entrySet().iterator();
 	    while (it.hasNext()) {
@@ -280,8 +265,4 @@ public class Habit extends DataOutPacket {
 		
 		return checkins;
 	}	
-	
-	
-	
-	
 }
